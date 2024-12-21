@@ -10,12 +10,17 @@ def graham_valuation(eps, growth_rate, risk_free_rate=4.4):
 # Function to Fetch Data from Alpha Vantage or Yahoo Finance
 def fetch_financial_data(ticker):
     # Replace with your Alpha Vantage API Key
-    api_key = "CLP9IN76G4S8OUXN"
+    api_key = "YOUR_ALPHA_VANTAGE_API_KEY"
     url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
     response = requests.get(url)
     
     if response.status_code == 200:
         data = response.json()
+        
+        # Debug: Print the response to identify issues
+        st.write("API Response:", data)
+        
+        # Check for required fields in the response
         if "EPS" in data and "GrowthRate" in data:
             return {
                 "Ticker": ticker,
@@ -23,9 +28,10 @@ def fetch_financial_data(ticker):
                 "Growth Rate": float(data["GrowthRate"])
             }
         else:
+            st.error("Required data not found in API response. Try another ticker.")
             return None
     else:
-        st.error("Failed to fetch data. Check the ticker or API connection.")
+        st.error(f"API request failed with status code: {response.status_code}")
         return None
 
 # Streamlit App
