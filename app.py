@@ -13,8 +13,7 @@ def fetch_financial_data(ticker):
     response = requests.get(url)
 
     if response.status_code == 200:
-        data = response.json()
-        return data  # Return the full response for flexible analyses
+        return response.json()
     else:
         st.error(f"API request failed with status code: {response.status_code}")
         return None
@@ -47,6 +46,13 @@ if st.button("Run Analysis"):
                 st.write(f"**EPS**: {eps}")
                 st.write(f"**Growth Rate**: {growth_rate:.1f}%")
                 st.write(f"**Intrinsic Value**: ${intrinsic_value:.2f}")
+
+                # Explain the verdict
+                st.write("### Evidence:")
+                st.write(f"- **EPS**: The Earnings Per Share (EPS) indicates the company's profitability. For {ticker}, the EPS is {eps}.")
+                st.write(f"- **Growth Rate**: The growth rate of {growth_rate:.1f}% reflects the company's potential for future earnings.")
+                st.write(f"- **Formula**: The intrinsic value is calculated using Benjamin Graham's formula: "
+                         f"`Intrinsic Value = EPS * (8.5 + 2 * Growth Rate) * Risk-Free Rate / 4.4`.")
             else:
                 st.error("Graham Valuation cannot be applied. EPS or Growth Rate data is missing.")
 
@@ -61,14 +67,27 @@ if st.button("Run Analysis"):
 
             # Display Results
             st.subheader(f"Growth Stock Analysis for {ticker}")
-            st.write(f"**Quarterly Revenue Growth (YOY)**: {revenue_growth:.1f}%")
+            st.write(f"**Quarterly Revenue Growth (YOY)**: {revenue_growth:.1f}%" if revenue_growth else "N/A")
             st.write(f"**PEG Ratio**: {peg_ratio or 'N/A'}")
             st.write(f"**Market Capitalization**: ${int(market_cap) / 1e9:.2f}B" if market_cap else "N/A")
 
-            # Evaluate Growth Stock Potential
+            # Explain the verdict
+            st.write("### Evidence:")
+            if revenue_growth:
+                st.write(f"- **Quarterly Revenue Growth (YOY)**: A growth rate of {revenue_growth:.1f}% "
+                         f"indicates {('strong' if revenue_growth > 20 else 'moderate')} growth potential.")
+            if peg_ratio:
+                st.write(f"- **PEG Ratio**: The PEG ratio of {peg_ratio} measures the price-to-earnings growth, "
+                         f"indicating valuation relative to growth potential.")
+            if market_cap:
+                st.write(f"- **Market Capitalization**: The company has a market cap of ${int(market_cap) / 1e9:.2f}B, "
+                         f"which places it in the {('large-cap' if float(market_cap) > 10e9 else 'mid/small-cap')} category.")
+
+            # Provide Overall Verdict
             if revenue_growth and revenue_growth > 20:
                 st.success("This stock demonstrates strong revenue growth. It may qualify as a growth stock.")
             else:
                 st.warning("Revenue growth is moderate. This stock may not qualify as a strong growth stock.")
     else:
         st.error("Unable to fetch data. Please try another ticker.")
+
