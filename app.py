@@ -10,7 +10,7 @@ def graham_valuation(eps, growth_rate, risk_free_rate=4.4):
 # Function to Fetch Data from Alpha Vantage or Yahoo Finance
 def fetch_financial_data(ticker):
     # Replace with your Alpha Vantage API Key
-    api_key = "YOUR_ALPHA_VANTAGE_API_KEY"
+    api_key = "CLP9IN76G4S8OUXN"
     url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
     response = requests.get(url)
     
