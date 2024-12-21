@@ -1,93 +1,65 @@
+import yfinance as yf
 import streamlit as st
 import requests
 
-# Graham Valuation Formula
-def graham_valuation(eps, growth_rate, risk_free_rate=4.4):
-    intrinsic_value = eps * (8.5 + (2 * growth_rate)) * risk_free_rate / 4.4
-    return intrinsic_value
-
-# Fetch Data Function
+# Fetch Data from Alpha Vantage
 def fetch_financial_data(ticker):
-    api_key = "CLP9IN76G4S8OUXN"  # Replace with your Alpha Vantage API Key
+    api_key = "CLP9IN76G4S8OUXN"
     url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
     response = requests.get(url)
+    return response.json() if response.status_code == 200 else None
 
-    if response.status_code == 200:
-        return response.json()
-    else:
-        st.error(f"API request failed with status code: {response.status_code}")
-        return None
+# Fetch Peer Data from yfinance
+def fetch_yfinance_data(ticker):
+    stock = yf.Ticker(ticker)
+    try:
+        info = stock.info
+        historical = stock.history(period="1y")
+        return {
+            "sector": info.get("sector", "Unknown"),
+            "industry": info.get("industry", "Unknown"),
+            "peers": info.get("longBusinessSummary", "No peer data available"),
+            "price_change_1y": (historical["Close"][-1] - historical["Close"][0]) / historical["Close"][0] * 100,
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 # Streamlit App
-st.title("Stock Analysis Tool")
-
-# Sidebar Menu
+st.title("Enhanced Stock Analysis Tool")
 menu = st.sidebar.radio("Select Analysis Type", ["Graham Valuation", "Growth Stock Analysis"])
-
-# User Input
 ticker = st.text_input("Enter Stock Ticker:", value="AAPL").upper()
 
 if st.button("Run Analysis"):
-    # Fetch data
     data = fetch_financial_data(ticker)
+    yf_data = fetch_yfinance_data(ticker)
 
-    if data:
-        if menu == "Graham Valuation":
-            # Perform Graham Valuation Analysis
-            eps = data.get("EPS")
-            growth_rate = data.get("QuarterlyEarningsGrowthYOY")
-
-            if eps and growth_rate:
-                growth_rate = float(growth_rate) * 100  # Convert to percentage
-                intrinsic_value = graham_valuation(float(eps), growth_rate)
-
-                # Display Results
-                st.subheader(f"Graham Valuation Results for {ticker}")
-                st.write(f"**EPS**: {eps}")
-                st.write(f"**Growth Rate**: {growth_rate:.1f}%")
-                st.write(f"**Intrinsic Value**: ${intrinsic_value:.2f}")
-
-                # Explain the verdict
-                st.write("### Evidence:")
-                st.write(f"- **EPS**: The Earnings Per Share (EPS) indicates the company's profitability. For {ticker}, the EPS is {eps}.")
-                st.write(f"- **Growth Rate**: The growth rate of {growth_rate:.1f}% reflects the company's potential for future earnings.")
-                st.write(f"- **Formula**: The intrinsic value is calculated using Benjamin Graham's formula: "
-                         f"`Intrinsic Value = EPS * (8.5 + 2 * Growth Rate) * Risk-Free Rate / 4.4`.")
-            else:
-                st.error("Graham Valuation cannot be applied. EPS or Growth Rate data is missing.")
-
-        elif menu == "Growth Stock Analysis":
-            # Perform Growth Stock Analysis
-            revenue_growth = data.get("QuarterlyRevenueGrowthYOY")
-            peg_ratio = data.get("PEGRatio")
-            market_cap = data.get("MarketCapitalization")
-
-            if revenue_growth:
-                revenue_growth = float(revenue_growth) * 100  # Convert to percentage
+    if data and yf_data:
+        if menu == "Growth Stock Analysis":
+            # Extract relevant metrics
+            revenue_growth = float(data.get("QuarterlyRevenueGrowthYOY", 0)) * 100
+            peg_ratio = data.get("PEGRatio", "N/A")
+            market_cap = float(data.get("MarketCapitalization", 0)) / 1e9
+            price_change_1y = yf_data.get("price_change_1y", "N/A")
+            sector = yf_data.get("sector", "Unknown")
+            industry = yf_data.get("industry", "Unknown")
+            peers = yf_data.get("peers", "N/A")
 
             # Display Results
             st.subheader(f"Growth Stock Analysis for {ticker}")
-            st.write(f"**Quarterly Revenue Growth (YOY)**: {revenue_growth:.1f}%" if revenue_growth else "N/A")
-            st.write(f"**PEG Ratio**: {peg_ratio or 'N/A'}")
-            st.write(f"**Market Capitalization**: ${int(market_cap) / 1e9:.2f}B" if market_cap else "N/A")
+            st.write(f"**Quarterly Revenue Growth (YOY)**: {revenue_growth:.1f}%")
+            st.write(f"**PEG Ratio**: {peg_ratio}")
+            st.write(f"**Market Capitalization**: ${market_cap:.2f}B")
+            st.write(f"**1-Year Price Change**: {price_change_1y:.2f}%")
+            st.write(f"**Sector**: {sector}")
+            st.write(f"**Industry**: {industry}")
 
-            # Explain the verdict
+            # Evidence Section
             st.write("### Evidence:")
-            if revenue_growth:
-                st.write(f"- **Quarterly Revenue Growth (YOY)**: A growth rate of {revenue_growth:.1f}% "
-                         f"indicates {('strong' if revenue_growth > 20 else 'moderate')} growth potential.")
-            if peg_ratio:
-                st.write(f"- **PEG Ratio**: The PEG ratio of {peg_ratio} measures the price-to-earnings growth, "
-                         f"indicating valuation relative to growth potential.")
-            if market_cap:
-                st.write(f"- **Market Capitalization**: The company has a market cap of ${int(market_cap) / 1e9:.2f}B, "
-                         f"which places it in the {('large-cap' if float(market_cap) > 10e9 else 'mid/small-cap')} category.")
-
-            # Provide Overall Verdict
-            if revenue_growth and revenue_growth > 20:
-                st.success("This stock demonstrates strong revenue growth. It may qualify as a growth stock.")
-            else:
-                st.warning("Revenue growth is moderate. This stock may not qualify as a strong growth stock.")
-    else:
-        st.error("Unable to fetch data. Please try another ticker.")
-
+            st.write(f"- **Revenue Growth**: A growth rate of {revenue_growth:.1f}% "
+                     f"compared to the sector average demonstrates {'strong' if revenue_growth > 20 else 'moderate'} potential.")
+            st.write(f"- **PEG Ratio**: PEG ratio of {peg_ratio} {'suggests undervaluation' if peg_ratio != 'N/A' and float(peg_ratio) < 1 else 'may indicate overvaluation'}.")
+            st.write(f"- **Market Capitalization**: With a market cap of ${market_cap:.2f}B, "
+                     f"{ticker} is classified as a {'large-cap' if market_cap > 10 else 'mid/small-cap'} stock.")
+            st.write(f"- **Sector and Industry**: The company operates in the {sector} sector, specifically the {industry} industry.")
+            st.write(f"- **Price Performance**: Over the past year, the stock price has changed by {price_change_1y:.2f}%, "
+                     f"indicating {'strong momentum' if price_change_1y > 20 else 'moderate performance'}.")
