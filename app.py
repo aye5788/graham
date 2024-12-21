@@ -9,26 +9,36 @@ def graham_valuation(eps, growth_rate, risk_free_rate=4.4):
 
 # Function to Fetch Data from Alpha Vantage or Yahoo Finance
 def fetch_financial_data(ticker):
-    # Replace with your Alpha Vantage API Key
+    # Alpha Vantage API setup
     api_key = "CLP9IN76G4S8OUXN"
     url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
     response = requests.get(url)
-    
+
     if response.status_code == 200:
         data = response.json()
-        
-        # Debug: Print the response to identify issues
+
+        # Debug: Print the response keys
+        st.write("Response Keys:", data.keys())
         st.write("API Response:", data)
-        
-        # Check for required fields in the response
-        if "EPS" in data and "GrowthRate" in data:
+
+        # Extract Trailing EPS and use AnalystTargetPrice as proxy for growth rate
+        eps = data.get("TrailingEPS")  # Trailing EPS
+        growth_rate = data.get("AnalystTargetPrice")  # Proxy for growth rate
+
+        # Use a default growth rate if AnalystTargetPrice is not available
+        if growth_rate:
+            growth_rate = float(growth_rate) / 100  # Convert to percentage
+        else:
+            growth_rate = 10  # Default growth rate in %
+
+        if eps:
             return {
                 "Ticker": ticker,
-                "EPS": float(data["EPS"]),
-                "Growth Rate": float(data["GrowthRate"])
+                "EPS": float(eps),
+                "Growth Rate": float(growth_rate)
             }
         else:
-            st.error("Required data not found in API response. Try another ticker.")
+            st.error("TrailingEPS not found in the API response. Please try another ticker.")
             return None
     else:
         st.error(f"API request failed with status code: {response.status_code}")
