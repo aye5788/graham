@@ -8,36 +8,22 @@ def graham_valuation(eps, growth_rate, risk_free_rate=4.4):
 
 # Fetch Data Function
 def fetch_financial_data(ticker):
-    # Alpha Vantage API setup
-    api_key = "CLP9IN76G4S8OUXN"  # Replace with your API key
+    api_key = "CLP9IN76G4S8OUXN"  # Replace with your Alpha Vantage API Key
     url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
     response = requests.get(url)
 
     if response.status_code == 200:
         data = response.json()
-
-        # Extract EPS and Growth Rate
-        eps = data.get("EPS")  # Use the "EPS" key from the API response
-        growth_rate = data.get("QuarterlyEarningsGrowthYOY")  # Use as proxy for Growth Rate
-
-        # Ensure valid data
-        if eps and growth_rate:
-            growth_rate = float(growth_rate) * 100  # Convert to percentage
-            return {
-                "Ticker": ticker,
-                "EPS": float(eps),
-                "Growth Rate": growth_rate
-            }
-        else:
-            st.error("Required data (EPS or Growth Rate) not found in the API response.")
-            return None
+        return data  # Return the full response for flexible analyses
     else:
         st.error(f"API request failed with status code: {response.status_code}")
         return None
 
 # Streamlit App
-st.title("Graham Valuation Calculator")
-st.write("Input a stock ticker to calculate its intrinsic value based on Benjamin Graham's formula.")
+st.title("Stock Analysis Tool")
+
+# Sidebar Menu
+menu = st.sidebar.radio("Select Analysis Type", ["Graham Valuation", "Growth Stock Analysis"])
 
 # User Input
 ticker = st.text_input("Enter Stock Ticker:", value="AAPL").upper()
@@ -47,11 +33,42 @@ if st.button("Run Analysis"):
     data = fetch_financial_data(ticker)
 
     if data:
-        # Perform valuation
-        intrinsic_value = graham_valuation(data["EPS"], data["Growth Rate"])
+        if menu == "Graham Valuation":
+            # Perform Graham Valuation Analysis
+            eps = data.get("EPS")
+            growth_rate = data.get("QuarterlyEarningsGrowthYOY")
 
-        # Display results
-        st.subheader(f"Results for {data['Ticker']}")
-        st.write(f"**EPS**: {data['EPS']}")
-        st.write(f"**Growth Rate**: {data['Growth Rate']:.1f}%")
-        st.write(f"**Intrinsic Value**: ${intrinsic_value:.2f}")
+            if eps and growth_rate:
+                growth_rate = float(growth_rate) * 100  # Convert to percentage
+                intrinsic_value = graham_valuation(float(eps), growth_rate)
+
+                # Display Results
+                st.subheader(f"Graham Valuation Results for {ticker}")
+                st.write(f"**EPS**: {eps}")
+                st.write(f"**Growth Rate**: {growth_rate:.1f}%")
+                st.write(f"**Intrinsic Value**: ${intrinsic_value:.2f}")
+            else:
+                st.error("Graham Valuation cannot be applied. EPS or Growth Rate data is missing.")
+
+        elif menu == "Growth Stock Analysis":
+            # Perform Growth Stock Analysis
+            revenue_growth = data.get("QuarterlyRevenueGrowthYOY")
+            peg_ratio = data.get("PEGRatio")
+            market_cap = data.get("MarketCapitalization")
+
+            if revenue_growth:
+                revenue_growth = float(revenue_growth) * 100  # Convert to percentage
+
+            # Display Results
+            st.subheader(f"Growth Stock Analysis for {ticker}")
+            st.write(f"**Quarterly Revenue Growth (YOY)**: {revenue_growth:.1f}%")
+            st.write(f"**PEG Ratio**: {peg_ratio or 'N/A'}")
+            st.write(f"**Market Capitalization**: ${int(market_cap) / 1e9:.2f}B" if market_cap else "N/A")
+
+            # Evaluate Growth Stock Potential
+            if revenue_growth and revenue_growth > 20:
+                st.success("This stock demonstrates strong revenue growth. It may qualify as a growth stock.")
+            else:
+                st.warning("Revenue growth is moderate. This stock may not qualify as a strong growth stock.")
+    else:
+        st.error("Unable to fetch data. Please try another ticker.")
