@@ -3,7 +3,7 @@ import requests
 
 # Fetch Data from Alpha Vantage
 def fetch_financial_data(ticker):
-    api_key = "CLP9IN76G4S8OUXN"  # Replace with your API key
+    api_key = "CLP9IN76G4S8OUXN"
     url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
     response = requests.get(url)
     if response.status_code == 200:
@@ -24,6 +24,23 @@ def calculate_price_change(data):
     except Exception:
         return None
 
+# Estimate Time to Profitability
+def estimate_time_to_profitability(data):
+    try:
+        profit_margin = float(data.get("ProfitMargin", 0))  # Current profit margin
+        revenue_growth = float(data.get("QuarterlyRevenueGrowthYOY", 0))  # Revenue growth (YOY)
+        
+        # Assume profit margin improves proportionally to revenue growth
+        if profit_margin < 0 and revenue_growth > 0:
+            # Time to profitability (in quarters)
+            ttp_quarters = abs(profit_margin) / revenue_growth
+            ttp_years = ttp_quarters / 4  # Convert to years
+            return round(ttp_years, 2)
+        else:
+            return None  # Already profitable or insufficient data
+    except Exception:
+        return None
+
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
 
@@ -41,53 +58,30 @@ if st.button("Run Analysis"):
         if menu == "Growth Stock Analysis":
             # Extract relevant metrics
             revenue_growth = data.get("QuarterlyRevenueGrowthYOY")
-            peg_ratio = data.get("PEGRatio")
             market_cap = data.get("MarketCapitalization")
             price_change_1y = calculate_price_change(data)
+            ttp = estimate_time_to_profitability(data)
 
             # Format and handle missing data
             revenue_growth_display = f"{float(revenue_growth) * 100:.1f}%" if revenue_growth else "N/A"
-            peg_ratio_display = peg_ratio or "N/A"
             market_cap_display = f"${float(market_cap) / 1e9:.2f}B" if market_cap else "N/A"
             price_change_display = f"{price_change_1y:.2f}%" if price_change_1y is not None else "N/A"
+            ttp_display = f"{ttp} years" if ttp else "N/A"
 
             # Display Results
             st.subheader(f"Growth Stock Analysis for {ticker}")
             st.write(f"**Quarterly Revenue Growth (YOY)**: {revenue_growth_display}")
-            st.write(f"**PEG Ratio**: {peg_ratio_display}")
             st.write(f"**Market Capitalization**: {market_cap_display}")
             st.write(f"**1-Year Price Change**: {price_change_display}")
+            st.write(f"**Estimated Time to Profitability**: {ttp_display}")
 
             # Evidence Section
             st.write("### Evidence:")
             st.write(f"- **Revenue Growth**: A growth rate of {revenue_growth_display} "
                      f"{'indicates strong growth potential' if revenue_growth and float(revenue_growth) * 100 > 20 else 'indicates moderate growth potential'}.")
-            st.write(f"- **PEG Ratio**: The PEG ratio of {peg_ratio_display} {'suggests undervaluation' if peg_ratio and float(peg_ratio) < 1 else 'may indicate overvaluation'}.")
             st.write(f"- **Market Capitalization**: The company has a market cap of {market_cap_display}, "
                      f"{'classifying it as a large-cap stock' if market_cap and float(market_cap) > 10e9 else 'placing it in the mid/small-cap category'}.")
             st.write(f"- **Price Performance**: Over the past year, the price has changed by {price_change_display}, "
                      f"{'indicating strong momentum' if price_change_1y and price_change_1y > 20 else 'indicating moderate performance'}.")
-
-        elif menu == "Graham Valuation":
-            # Perform Graham Valuation Analysis
-            eps = data.get("EPS")
-            growth_rate = data.get("QuarterlyEarningsGrowthYOY")
-
-            if eps and growth_rate:
-                growth_rate = float(growth_rate) * 100  # Convert to percentage
-                intrinsic_value = eps * (8.5 + (2 * growth_rate)) * 4.4 / 4.4
-
-                # Display Results
-                st.subheader(f"Graham Valuation Results for {ticker}")
-                st.write(f"**EPS**: {eps}")
-                st.write(f"**Growth Rate**: {growth_rate:.1f}%")
-                st.write(f"**Intrinsic Value**: ${intrinsic_value:.2f}")
-
-                # Explain the verdict
-                st.write("### Evidence:")
-                st.write(f"- **EPS**: The Earnings Per Share (EPS) indicates the company's profitability. For {ticker}, the EPS is {eps}.")
-                st.write(f"- **Growth Rate**: The growth rate of {growth_rate:.1f}% reflects the company's potential for future earnings.")
-                st.write(f"- **Formula**: The intrinsic value is calculated using Benjamin Graham's formula: "
-                         f"`Intrinsic Value = EPS * (8.5 + 2 * Growth Rate) * Risk-Free Rate / 4.4`.")
-            else:
-                st.error("Graham Valuation cannot be applied. EPS or Growth Rate data is missing.")
+            st.write(f"- **Profitability**: The company is expected to achieve profitability in {ttp_display} "
+                     f"based on its current revenue growth and profit margin trends.")
