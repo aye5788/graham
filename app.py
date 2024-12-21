@@ -17,30 +17,29 @@ def fetch_financial_data(ticker):
     if response.status_code == 200:
         data = response.json()
 
-        # Debug: Print the response keys
+        # Debug: Display the response keys and full response
         st.write("Response Keys:", data.keys())
         st.write("API Response:", data)
 
-        # Extract Trailing EPS and use AnalystTargetPrice as proxy for growth rate
-        eps = data.get("TrailingEPS")  # Trailing EPS
-        growth_rate = data.get("AnalystTargetPrice")  # Proxy for growth rate
+        # Extract EPS and use QuarterlyEarningsGrowthYOY or PEGRatio for Growth Rate
+        eps = data.get("EPS")  # Corrected to use "EPS"
+        growth_rate = data.get("QuarterlyEarningsGrowthYOY")  # Use as a proxy for Growth Rate
 
-        # Use a default growth rate if AnalystTargetPrice is not available
-        if growth_rate:
-            growth_rate = float(growth_rate) / 100  # Convert to percentage
-        else:
-            growth_rate = 10  # Default growth rate in %
-
-        if eps:
+        # Ensure valid data
+        if eps and growth_rate:
+            # Convert growth rate from decimal to percentage
+            growth_rate = float(growth_rate) * 100
             return {
                 "Ticker": ticker,
                 "EPS": float(eps),
-                "Growth Rate": float(growth_rate)
+                "Growth Rate": growth_rate
             }
         else:
-            st.error("TrailingEPS not found in the API response. Please try another ticker.")
+            # Handle missing EPS or Growth Rate
+            st.error("Required data (EPS or Growth Rate) not found in the API response.")
             return None
     else:
+        # Handle API errors
         st.error(f"API request failed with status code: {response.status_code}")
         return None
 
