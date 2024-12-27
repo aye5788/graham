@@ -12,7 +12,25 @@ def fetch_financial_data(ticker):
         st.error(f"API request failed with status code: {response.status_code}")
         return None
 
-# Calculate Price-to-Sales (P/S) Ratio
+# Fetch Real-Time Price from Alpha Vantage
+def fetch_real_time_price(ticker):
+    api_key = "CLP9IN76G4S8OUXN"
+    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={ticker}&interval=1min&apikey={api_key}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        try:
+            # Get the most recent closing price from the time series data
+            last_refreshed = data["Meta Data"]["3. Last Refreshed"]
+            real_time_price = float(data["Time Series (1min)"][last_refreshed]["4. close"])
+            return real_time_price
+        except KeyError:
+            return None
+    else:
+        st.error(f"Failed to fetch real-time price. Status code: {response.status_code}")
+        return None
+
+# Calculate Price-to-Sales (P/S) Ratio and Suggested Price
 def calculate_ps_ratio(data):
     try:
         market_cap = float(data.get("MarketCapitalization", 0))
@@ -63,8 +81,10 @@ ticker = st.text_input("Enter Stock Ticker:", value="AAPL").upper()
 if st.button("Run Analysis"):
     # Fetch data from overview
     data = fetch_financial_data(ticker)
-
     if data:
+        # Fetch real-time price
+        real_time_price = fetch_real_time_price(ticker)
+
         if menu == "Growth Stock Analysis":
             # Growth Stock Analysis logic remains unchanged
             revenue_growth = data.get("QuarterlyRevenueGrowthYOY")
@@ -82,14 +102,17 @@ if st.button("Run Analysis"):
                 st.subheader(f"P/S Ratio Valuation for {ticker}")
                 st.write(f"**Price-to-Sales (P/S) Ratio:** {ps_ratio}")
                 st.write(f"**Suggested Fair Price:** ${suggested_price}")
-                
-                # Dynamic interpretation of P/S Ratio
-                if ps_ratio < 1:
-                    st.write("**Interpretation:** This suggests the stock might be undervalued relative to its sales.")
-                elif 1 <= ps_ratio <= 3:
-                    st.write("**Interpretation:** The stock appears reasonably valued in terms of its sales.")
-                else:
-                    st.write("**Interpretation:** The stock seems expensive relative to its sales. It could be overvalued.")
+
+                # Compare with real-time price
+                if real_time_price:
+                    st.write(f"**Current Price:** ${real_time_price}")
+                    if real_time_price < suggested_price:
+                        st.write("**Interpretation:** The stock is currently underpriced.")
+                    elif real_time_price > suggested_price:
+                        st.write("**Interpretation:** The stock is currently overpriced.")
+                    else:
+                        st.write("**Interpretation:** The stock is fairly priced based on the P/S ratio.")
+
             else:
                 st.write("P/S Ratio could not be calculated. Please ensure MarketCap and Revenue data are available.")
 
@@ -100,16 +123,17 @@ if st.button("Run Analysis"):
                 st.subheader(f"DCF Model Valuation for {ticker}")
                 st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${dcf_value}")
                 st.write(f"**Suggested Fair Price:** ${suggested_price}")
-                
-                # Dynamic interpretation of DCF value
-                market_cap = float(data.get("MarketCapitalization", 0))
-                if dcf_value < market_cap:
-                    st.write("**Interpretation:** The stock is currently overvalued based on its future cash flows.")
-                elif dcf_value > market_cap:
-                    st.write("**Interpretation:** The stock appears undervalued, with a market price lower than its intrinsic value.")
-                else:
-                    st.write("**Interpretation:** The stock seems fairly valued, with its market price close to the calculated intrinsic value.")
-            else:
-                st.write("DCF Valuation could not be calculated. Please ensure Free Cash Flow data is available.")
 
+                # Compare with real-time price
+                if real_time_price:
+                    st.write(f"**Current Price:** ${real_time_price}")
+                    if real_time_price < suggested_price:
+                        st.write("**Interpretation:** The stock is currently underpriced.")
+                    elif real_time_price > suggested_price:
+                        st.write("**Interpretation:** The stock is currently overpriced.")
+                    else:
+                        st.write("**Interpretation:** The stock is fairly priced based on DCF.")
+
+            else:
+                st.write("DCF Valuation could not be calculated. Please ensure Free Cash Flow data are available.")
 
