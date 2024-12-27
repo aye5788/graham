@@ -17,25 +17,23 @@ def calculate_ps_ratio(data):
     try:
         market_cap = float(data.get("MarketCapitalization", 0))
         revenue = float(data.get("RevenueTTM", 0))  # Total Revenue (Trailing Twelve Months)
+        shares_outstanding = float(data.get("SharesOutstanding", 0))  # Shares Outstanding
 
-        if revenue > 0:
+        if revenue > 0 and shares_outstanding > 0:
             ps_ratio = market_cap / revenue
-            return round(ps_ratio, 2)
+            suggested_price = (ps_ratio * revenue) / shares_outstanding  # Suggested fair price based on P/S ratio
+            return round(ps_ratio, 2), round(suggested_price, 2)
         else:
-            return None
+            return None, None
     except Exception:
-        return None
+        return None, None
 
 # Discounted Cash Flow (DCF) Model
 def calculate_dcf(data, growth_rate=0.1, discount_rate=0.08, years=5):
-    """
-    This is a simplified DCF model where:
-    - growth_rate: Expected annual growth rate of free cash flow (assumed 10% if not provided)
-    - discount_rate: Discount rate (assumed 8% if not provided)
-    - years: Number of years to project cash flows
-    """
     try:
         fcf = float(data.get("FreeCashFlow", 0))  # Free Cash Flow (assumed if available)
+        shares_outstanding = float(data.get("SharesOutstanding", 0))  # Shares Outstanding
+
         if fcf <= 0:
             fcf = 100000000  # Assume a baseline if not available (for non-profitable companies)
 
@@ -44,9 +42,14 @@ def calculate_dcf(data, growth_rate=0.1, discount_rate=0.08, years=5):
             projected_fcf = fcf * (1 + growth_rate) ** t
             dcf_value += projected_fcf / (1 + discount_rate) ** t
 
-        return round(dcf_value, 2)
+        # Suggested price based on DCF
+        if shares_outstanding > 0:
+            suggested_price = dcf_value / shares_outstanding
+            return round(dcf_value, 2), round(suggested_price, 2)
+        else:
+            return None, None
     except Exception:
-        return None
+        return None, None
 
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
@@ -73,11 +76,12 @@ if st.button("Run Analysis"):
             st.write(f"**1-Year Price Change:** {price_change_1y}")
 
         elif menu == "Stock Valuation (P/S Ratio)":
-            # Calculate P/S Ratio
-            ps_ratio = calculate_ps_ratio(data)
+            # Calculate P/S Ratio and suggested price
+            ps_ratio, suggested_price = calculate_ps_ratio(data)
             if ps_ratio:
                 st.subheader(f"P/S Ratio Valuation for {ticker}")
                 st.write(f"**Price-to-Sales (P/S) Ratio:** {ps_ratio}")
+                st.write(f"**Suggested Fair Price:** ${suggested_price}")
                 
                 # Dynamic interpretation of P/S Ratio
                 if ps_ratio < 1:
@@ -90,11 +94,12 @@ if st.button("Run Analysis"):
                 st.write("P/S Ratio could not be calculated. Please ensure MarketCap and Revenue data are available.")
 
         elif menu == "DCF Model Valuation":
-            # Calculate DCF (Discounted Cash Flow) Value
-            dcf_value = calculate_dcf(data)
+            # Calculate DCF (Discounted Cash Flow) Value and suggested price
+            dcf_value, suggested_price = calculate_dcf(data)
             if dcf_value:
                 st.subheader(f"DCF Model Valuation for {ticker}")
                 st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${dcf_value}")
+                st.write(f"**Suggested Fair Price:** ${suggested_price}")
                 
                 # Dynamic interpretation of DCF value
                 market_cap = float(data.get("MarketCapitalization", 0))
