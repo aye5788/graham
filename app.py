@@ -30,14 +30,30 @@ def estimate_time_to_profitability(data):
         profit_margin = float(data.get("ProfitMargin", 0))  # Current profit margin
         revenue_growth = float(data.get("QuarterlyRevenueGrowthYOY", 0))  # Revenue growth (YOY)
         
-        # Assume profit margin improves proportionally to revenue growth
-        if profit_margin < 0 and revenue_growth > 0:
+        if profit_margin > 0:
+            return "Already Profitable"
+        elif profit_margin < 0 and revenue_growth > 0:
             # Time to profitability (in quarters)
             ttp_quarters = abs(profit_margin) / revenue_growth
             ttp_years = ttp_quarters / 4  # Convert to years
             return round(ttp_years, 2)
         else:
-            return None  # Already profitable or insufficient data
+            return None  # Insufficient data
+    except Exception:
+        return None
+
+# Calculate Graham Valuation
+def calculate_graham_valuation(data):
+    try:
+        eps = float(data.get("EPS", 0))
+        growth_rate = float(data.get("QuarterlyRevenueGrowthYOY", 0)) * 100  # Convert to percentage
+        bond_yield = 4.4  # Assume 4.4% as default AAA bond yield (can be adjusted)
+
+        if eps > 0 and growth_rate > 0:
+            intrinsic_value = eps * (8.5 + 2 * growth_rate) * (4.4 / bond_yield)
+            return round(intrinsic_value, 2)
+        else:
+            return None
     except Exception:
         return None
 
@@ -66,7 +82,7 @@ if st.button("Run Analysis"):
             revenue_growth_display = f"{float(revenue_growth) * 100:.1f}%" if revenue_growth else "N/A"
             market_cap_display = f"${float(market_cap) / 1e9:.2f}B" if market_cap else "N/A"
             price_change_display = f"{price_change_1y:.2f}%" if price_change_1y is not None else "N/A"
-            ttp_display = f"{ttp} years" if ttp else "N/A"
+            ttp_display = ttp if ttp else "N/A"
 
             # Display Results
             st.subheader(f"Growth Stock Analysis for {ticker}")
@@ -83,5 +99,15 @@ if st.button("Run Analysis"):
                      f"{'classifying it as a large-cap stock' if market_cap and float(market_cap) > 10e9 else 'placing it in the mid/small-cap category'}.")
             st.write(f"- **Price Performance**: Over the past year, the price has changed by {price_change_display}, "
                      f"{'indicating strong momentum' if price_change_1y and price_change_1y > 20 else 'indicating moderate performance'}.")
-            st.write(f"- **Profitability**: The company is expected to achieve profitability in {ttp_display} "
-                     f"based on its current revenue growth and profit margin trends.")
+            st.write(f"- **Profitability**: {ttp_display}.")
+
+        elif menu == "Graham Valuation":
+            # Calculate Graham Valuation
+            graham_valuation = calculate_graham_valuation(data)
+
+            # Display Results
+            st.subheader(f"Graham Valuation Analysis for {ticker}")
+            if graham_valuation:
+                st.write(f"**Intrinsic Value (Graham Valuation)**: ${graham_valuation}")
+            else:
+                st.write("Graham Valuation could not be calculated. Please ensure EPS and growth rate data are available.")
