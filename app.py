@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 
-# Fetch Data from Alpha Vantage - OVEREVIEW
+# Fetch Financial Data from Alpha Vantage - Overview
 def fetch_financial_data(ticker):
     api_key = "CLP9IN76G4S8OUXN"
     url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
@@ -12,22 +12,26 @@ def fetch_financial_data(ticker):
         st.error(f"API request failed with status code: {response.status_code}")
         return None
 
-# Fetch Real-Time Price from Alpha Vantage
-def fetch_real_time_price(ticker):
+# Fetch Free Cash Flow (FCF) from Alpha Vantage
+def fetch_free_cash_flow(ticker):
     api_key = "CLP9IN76G4S8OUXN"
-    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={ticker}&interval=1min&apikey={api_key}"
+    url = f"https://www.alphavantage.co/query?function=CASH_FLOW&symbol={ticker}&apikey={api_key}"
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
         try:
-            # Get the most recent closing price from the time series data
-            last_refreshed = data["Meta Data"]["3. Last Refreshed"]
-            real_time_price = float(data["Time Series (1min)"][last_refreshed]["4. close"])
-            return real_time_price
+            # Extracting the most recent annual free cash flow
+            annual_data = data['annualCashFlow']
+            if annual_data:
+                # Use the most recent year's free cash flow value
+                fcf = float(annual_data[0]['freeCashFlow'])
+                return fcf
+            else:
+                return None
         except KeyError:
             return None
     else:
-        st.error(f"Failed to fetch real-time price. Status code: {response.status_code}")
+        st.error(f"Failed to fetch Free Cash Flow data. Status code: {response.status_code}")
         return None
 
 # Calculate Price-to-Sales (P/S) Ratio and Suggested Price
@@ -49,11 +53,14 @@ def calculate_ps_ratio(data):
 # Discounted Cash Flow (DCF) Model
 def calculate_dcf(data, growth_rate=0.1, discount_rate=0.08, years=5):
     try:
-        fcf = float(data.get("FreeCashFlow", 0))  # Free Cash Flow (assumed if available)
+        # Fetch Free Cash Flow from the CASH_FLOW endpoint
+        fcf = fetch_free_cash_flow(data['Symbol'])
         shares_outstanding = float(data.get("SharesOutstanding", 0))  # Shares Outstanding
 
-        if fcf <= 0:
-            fcf = 100000000  # Assume a baseline if not available (for non-profitable companies)
+        # Check if we successfully retrieved Free Cash Flow
+        if fcf is None or fcf <= 0:
+            st.write("Free Cash Flow data is missing or invalid. Using a baseline value for calculation.")
+            fcf = 100000000  # Baseline free cash flow value (for non-profitable companies)
 
         dcf_value = 0
         for t in range(1, years + 1):
@@ -82,7 +89,7 @@ if st.button("Run Analysis"):
     # Fetch data from overview
     data = fetch_financial_data(ticker)
     if data:
-        # Fetch real-time price
+        # Fetch real-time price (optional)
         real_time_price = fetch_real_time_price(ticker)
 
         if menu == "Growth Stock Analysis":
