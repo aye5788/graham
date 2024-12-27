@@ -1,5 +1,5 @@
-import streamlit as st
 import requests
+import streamlit as st
 
 # Fetch Financial Data from Alpha Vantage - Overview
 def fetch_financial_data(ticker):
@@ -32,6 +32,24 @@ def fetch_free_cash_flow(ticker):
             return None
     else:
         st.error(f"Failed to fetch Free Cash Flow data. Status code: {response.status_code}")
+        return None
+
+# Fetch Real-Time Price from Alpha Vantage
+def fetch_real_time_price(ticker):
+    api_key = "CLP9IN76G4S8OUXN"
+    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={ticker}&interval=1min&apikey={api_key}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        try:
+            # Get the most recent closing price from the time series data
+            last_refreshed = data["Meta Data"]["3. Last Refreshed"]
+            real_time_price = float(data["Time Series (1min)"][last_refreshed]["4. close"])
+            return real_time_price
+        except KeyError:
+            return None
+    else:
+        st.error(f"Failed to fetch real-time price. Status code: {response.status_code}")
         return None
 
 # Calculate Price-to-Sales (P/S) Ratio and Suggested Price
