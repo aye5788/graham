@@ -78,6 +78,14 @@ if st.button("Run Analysis"):
             if ps_ratio:
                 st.subheader(f"P/S Ratio Valuation for {ticker}")
                 st.write(f"**Price-to-Sales (P/S) Ratio:** {ps_ratio}")
+                
+                # Dynamic interpretation of P/S Ratio
+                if ps_ratio < 1:
+                    st.write("**Interpretation:** This suggests the stock might be undervalued relative to its sales.")
+                elif 1 <= ps_ratio <= 3:
+                    st.write("**Interpretation:** The stock appears reasonably valued in terms of its sales.")
+                else:
+                    st.write("**Interpretation:** The stock seems expensive relative to its sales. It could be overvalued.")
             else:
                 st.write("P/S Ratio could not be calculated. Please ensure MarketCap and Revenue data are available.")
 
@@ -87,6 +95,15 @@ if st.button("Run Analysis"):
             if dcf_value:
                 st.subheader(f"DCF Model Valuation for {ticker}")
                 st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${dcf_value}")
+                
+                # Dynamic interpretation of DCF value
+                market_cap = float(data.get("MarketCapitalization", 0))
+                if dcf_value < market_cap:
+                    st.write("**Interpretation:** The stock is currently overvalued based on its future cash flows.")
+                elif dcf_value > market_cap:
+                    st.write("**Interpretation:** The stock appears undervalued, with a market price lower than its intrinsic value.")
+                else:
+                    st.write("**Interpretation:** The stock seems fairly valued, with its market price close to the calculated intrinsic value.")
             else:
                 st.write("DCF Valuation could not be calculated. Please ensure Free Cash Flow data is available.")
 
