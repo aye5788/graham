@@ -12,6 +12,17 @@ def fetch_financial_data(ticker):
         st.error(f"API request failed with status code: {response.status_code}")
         return None
 
+# Fetch EPS History (Optional: For Advanced Valuation Models)
+def fetch_earnings_data(ticker):
+    api_key = "CLP9IN76G4S8OUXN"
+    url = f"https://www.alphavantage.co/query?function=EARNINGS&symbol={ticker}&apikey={api_key}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error(f"API request failed with status code: {response.status_code}")
+        return None
+
 # Calculate 1-Year Price Change
 def calculate_price_change(data):
     try:
@@ -94,26 +105,23 @@ if st.button("Run Analysis"):
 
     if data:
         if menu == "Growth Stock Analysis":
-            # Extract relevant metrics
+            # Growth Stock Analysis logic remains unchanged
             revenue_growth = data.get("QuarterlyRevenueGrowthYOY")
             market_cap = data.get("MarketCapitalization")
             price_change_1y = calculate_price_change(data)
             ttp = estimate_time_to_profitability(data)
 
-            # Format and handle missing data
             revenue_growth_display = f"{float(revenue_growth) * 100:.1f}%" if revenue_growth else "N/A"
             market_cap_display = f"${float(market_cap) / 1e9:.2f}B" if market_cap else "N/A"
             price_change_display = f"{price_change_1y:.2f}%" if price_change_1y is not None else "N/A"
             ttp_display = format_time_to_profitability(ttp) if ttp not in ["Already Profitable", None] else ttp
 
-            # Display Results
             st.subheader(f"Growth Stock Analysis for {ticker}")
             st.write(f"**Quarterly Revenue Growth (YOY):** {revenue_growth_display}")
             st.write(f"**Market Capitalization:** {market_cap_display}")
             st.write(f"**1-Year Price Change:** {price_change_display}")
             st.write(f"**Estimated Time to Profitability:** {ttp_display}")
 
-            # Evidence Section
             st.write("### Evidence:")
             st.write(f"- **Revenue Growth:** A growth rate of {revenue_growth_display} "
                      f"{'indicates strong growth potential' if revenue_growth and float(revenue_growth) * 100 > 20 else 'indicates moderate growth potential'}.")
@@ -124,18 +132,22 @@ if st.button("Run Analysis"):
             st.write(f"- **Profitability:** {ttp_display}.")
 
         elif menu == "Graham Valuation":
-            # Calculate Graham Valuation
-            graham_valuation = calculate_graham_valuation(data)
-            fair_value = calculate_fair_value(data)
-
-            # Display Results
-            st.subheader(f"Graham Valuation Analysis for {ticker}")
-            if graham_valuation:
-                st.write(f"**Intrinsic Value (Graham Valuation):** ${graham_valuation}")
-            else:
-                st.write("Graham Valuation could not be calculated. Please ensure EPS and growth rate data are available.")
+            eps = data.get("EPS")
+            growth_rate = data.get("QuarterlyRevenueGrowthYOY")
             
-            if fair_value:
-                st.write(f"**Fair Value Estimate:** ${fair_value}")
+            if not eps or float(eps) <= 0:
+                st.write("Graham Valuation could not be calculated because EPS data is missing or invalid.")
+            elif not growth_rate or float(growth_rate) <= 0:
+                st.write("Graham Valuation could not be calculated because Growth Rate data is missing or invalid.")
             else:
-                st.write("Fair Value could not be calculated. Please ensure EPS data is available.")
+                graham_valuation = calculate_graham_valuation(data)
+                st.subheader(f"Graham Valuation Analysis for {ticker}")
+                st.write(f"**Intrinsic Value (Graham Valuation):** ${graham_valuation}")
+            
+            if not eps or float(eps) <= 0:
+                st.write("Fair Value could not be calculated because EPS data is missing or invalid.")
+            else:
+                fair_value = calculate_fair_value(data)
+                if fair_value:
+                    st.write(f"**Fair Value Estimate:** ${fair_value}")
+
