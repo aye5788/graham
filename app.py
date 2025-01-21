@@ -64,9 +64,12 @@ def fetch_fmp_metrics(ticker, endpoint):
 # Enhanced function to filter and visualize metrics
 def visualize_metrics(data, title):
     st.subheader(title)
+
+    # Debugging: Log raw data
+    st.write(f"Raw data for {title}:", data)
     
-    # Filter out empty or zero metrics
-    filtered_data = {k: v for k, v in data.items() if v not in [None, 0, ""]}
+    # Relaxed filtering: Allow zero values for debugging
+    filtered_data = {k: v for k, v in data.items() if v is not None}
     if not filtered_data:
         st.write("No relevant data available.")
         return
@@ -79,6 +82,42 @@ def visualize_metrics(data, title):
     numeric_data = {k: v for k, v in filtered_data.items() if isinstance(v, (int, float))}
     if numeric_data:
         st.bar_chart(pd.DataFrame(numeric_data, index=[0]).T)
+
+# Main loop for fetching and visualizing data
+if menu == "DCF Model Valuation":
+    dcf_value = fetch_dcf_valuation(ticker)
+
+    if dcf_value:
+        if real_time_price:
+            st.subheader(f"DCF Model Valuation for {ticker}")
+            st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${round(dcf_value, 2)}")
+            st.write(f"**Current Price (AV):** ${round(real_time_price, 2)}")
+            percentage_diff = ((real_time_price - dcf_value) / dcf_value) * 100
+            if real_time_price < dcf_value:
+                st.write(f"**Interpretation:** The stock is currently underpriced by {abs(round(percentage_diff, 2))}%.")
+            elif real_time_price > dcf_value:
+                st.write(f"**Interpretation:** The stock is currently overpriced by {abs(round(percentage_diff, 2))}%.")
+            else:
+                st.write("**Interpretation:** The stock is fairly priced.")
+
+        # Fetch and visualize additional financial metrics
+        endpoints = [
+            ("key-metrics", "Key Metrics"),
+            ("ratios", "Ratios"),
+            ("cash-flow-statement-growth", "Cashflow Growth"),
+            ("income-statement-growth", "Income Growth"),
+            ("balance-sheet-statement-growth", "Balance Sheet Growth"),
+            ("enterprise-values", "Enterprise Values"),
+        ]
+        for endpoint, title in endpoints:
+            metrics = fetch_fmp_metrics(ticker, endpoint)
+            if metrics and isinstance(metrics, list):  # Ensure we get a list of results
+                st.write(f"Debug: Raw API response for {endpoint}", metrics)
+                visualize_metrics(metrics[0], title)  # Visualize the first result
+            elif metrics and isinstance(metrics, dict):  # Handle dict case
+                visualize_metrics(metrics, title)
+            else:
+                st.write(f"No data available for {title}.")
 
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
