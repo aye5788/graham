@@ -1,6 +1,5 @@
 import requests
 import streamlit as st
-import pandas as pd
 
 # Fetch Financial Data from Alpha Vantage - Overview
 def fetch_financial_data(ticker):
@@ -11,6 +10,28 @@ def fetch_financial_data(ticker):
         return response.json()
     else:
         st.error(f"API request failed with status code: {response.status_code}")
+        return None
+
+# Fetch Free Cash Flow (FCF) from Alpha Vantage
+def fetch_free_cash_flow(ticker):
+    api_key = "RUSJILJHKEEHEMJ7"
+    url = f"https://www.alphavantage.co/query?function=CASH_FLOW&symbol={ticker}&apikey={api_key}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        try:
+            # Extracting the most recent annual free cash flow
+            annual_data = data['annualCashFlow']
+            if annual_data:
+                # Use the most recent year's free cash flow value
+                fcf = float(annual_data[0]['freeCashFlow'])
+                return fcf
+            else:
+                return None
+        except KeyError:
+            return None
+    else:
+        st.error(f"Failed to fetch Free Cash Flow data. Status code: {response.status_code}")
         return None
 
 # Fetch Real-Time Price from Alpha Vantage
@@ -39,6 +60,7 @@ def fetch_dcf_valuation(ticker):
     if response.status_code == 200:
         data = response.json()
         try:
+            # Extract the latest DCF value
             if data:
                 dcf_value = float(data[0].get('dcf', 0))
                 return dcf_value
@@ -50,75 +72,6 @@ def fetch_dcf_valuation(ticker):
         st.error(f"Failed to fetch DCF valuation. Status code: {response.status_code}")
         return None
 
-# Fetch Additional Metrics from FMP
-def fetch_fmp_metrics(ticker, endpoint):
-    api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"
-    url = f"https://financialmodelingprep.com/api/v3/{endpoint}/{ticker}?apikey={api_key}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        st.error(f"Failed to fetch data from {endpoint}. Status code: {response.status_code}")
-        return None
-
-# Enhanced function to filter and visualize metrics
-def visualize_metrics(data, title):
-    st.subheader(title)
-
-    # Debugging: Log raw data
-    st.write(f"Raw data for {title}:", data)
-    
-    # Relaxed filtering: Allow zero values for debugging
-    filtered_data = {k: v for k, v in data.items() if v is not None}
-    if not filtered_data:
-        st.write("No relevant data available.")
-        return
-
-    # Display data in a table format
-    df = pd.DataFrame(filtered_data, index=[0])
-    st.dataframe(df.T)  # Transpose for better readability
-
-    # Bar Chart for numeric metrics
-    numeric_data = {k: v for k, v in filtered_data.items() if isinstance(v, (int, float))}
-    if numeric_data:
-        st.bar_chart(pd.DataFrame(numeric_data, index=[0]).T)
-
-# Main loop for fetching and visualizing data
-if menu == "DCF Model Valuation":
-    dcf_value = fetch_dcf_valuation(ticker)
-
-    if dcf_value:
-        if real_time_price:
-            st.subheader(f"DCF Model Valuation for {ticker}")
-            st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${round(dcf_value, 2)}")
-            st.write(f"**Current Price (AV):** ${round(real_time_price, 2)}")
-            percentage_diff = ((real_time_price - dcf_value) / dcf_value) * 100
-            if real_time_price < dcf_value:
-                st.write(f"**Interpretation:** The stock is currently underpriced by {abs(round(percentage_diff, 2))}%.")
-            elif real_time_price > dcf_value:
-                st.write(f"**Interpretation:** The stock is currently overpriced by {abs(round(percentage_diff, 2))}%.")
-            else:
-                st.write("**Interpretation:** The stock is fairly priced.")
-
-        # Fetch and visualize additional financial metrics
-        endpoints = [
-            ("key-metrics", "Key Metrics"),
-            ("ratios", "Ratios"),
-            ("cash-flow-statement-growth", "Cashflow Growth"),
-            ("income-statement-growth", "Income Growth"),
-            ("balance-sheet-statement-growth", "Balance Sheet Growth"),
-            ("enterprise-values", "Enterprise Values"),
-        ]
-        for endpoint, title in endpoints:
-            metrics = fetch_fmp_metrics(ticker, endpoint)
-            if metrics and isinstance(metrics, list):  # Ensure we get a list of results
-                st.write(f"Debug: Raw API response for {endpoint}", metrics)
-                visualize_metrics(metrics[0], title)  # Visualize the first result
-            elif metrics and isinstance(metrics, dict):  # Handle dict case
-                visualize_metrics(metrics, title)
-            else:
-                st.write(f"No data available for {title}.")
-
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
 
@@ -128,7 +81,6 @@ menu = st.sidebar.radio("Select Analysis Type", ["Stock Valuation (P/S Ratio)", 
 # User Input
 ticker = st.text_input("Enter Stock Ticker:", value="AAPL").upper()
 
-# Run Analysis when the button is clicked
 if st.button("Run Analysis"):
     # Fetch data from overview
     data = fetch_financial_data(ticker)
@@ -136,11 +88,46 @@ if st.button("Run Analysis"):
         # Fetch real-time price
         real_time_price = fetch_real_time_price(ticker)
 
-        if menu == "DCF Model Valuation":
+        if menu == "Growth Stock Analysis":
+            # Growth Stock Analysis logic remains unchanged
+            revenue_growth = data.get("QuarterlyRevenueGrowthYOY")
+            market_cap = data.get("MarketCapitalization")
+            st.subheader(f"Growth Stock Analysis for {ticker}")
+            st.write(f"**Quarterly Revenue Growth (YOY):** {revenue_growth}")
+            st.write(f"**Market Capitalization:** {market_cap}")
+
+        elif menu == "Stock Valuation (P/S Ratio)":
+            # Calculate P/S Ratio and suggested price
+            market_cap = float(data.get("MarketCapitalization", 0))
+            revenue = float(data.get("RevenueTTM", 0))
+            shares_outstanding = float(data.get("SharesOutstanding", 0))
+
+            if revenue > 0 and shares_outstanding > 0:
+                ps_ratio = market_cap / revenue
+                suggested_price = (ps_ratio * revenue) / shares_outstanding
+                st.subheader(f"P/S Ratio Valuation for {ticker}")
+                st.write(f"**Price-to-Sales (P/S) Ratio:** {round(ps_ratio, 2)}")
+                st.write(f"**Suggested Fair Price:** ${round(suggested_price, 2)}")
+
+                # Include the current price in the analysis
+                if real_time_price:
+                    st.write(f"**Current Price (AV):** ${round(real_time_price, 2)}")
+                    percentage_diff = ((real_time_price - suggested_price) / suggested_price) * 100
+                    if real_time_price < suggested_price:
+                        st.write(f"**Interpretation:** The stock is currently underpriced by {abs(round(percentage_diff, 2))}%.")
+                    elif real_time_price > suggested_price:
+                        st.write(f"**Interpretation:** The stock is currently overpriced by {abs(round(percentage_diff, 2))}%.")
+                    else:
+                        st.write("**Interpretation:** The stock is fairly priced based on the P/S ratio.")
+            else:
+                st.write("P/S Ratio could not be calculated. Please ensure MarketCap and Revenue data are available.")
+
+        elif menu == "DCF Model Valuation":
             # Fetch DCF valuation from FMP
             dcf_value = fetch_dcf_valuation(ticker)
 
             if dcf_value:
+                # Include the current price in the analysis
                 if real_time_price:
                     st.subheader(f"DCF Model Valuation for {ticker}")
                     st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${round(dcf_value, 2)}")
@@ -152,26 +139,8 @@ if st.button("Run Analysis"):
                         st.write(f"**Interpretation:** The stock is currently overpriced by {abs(round(percentage_diff, 2))}%.")
                     else:
                         st.write("**Interpretation:** The stock is fairly priced.")
-
-                # Fetch additional financial metrics from FMP
-                endpoints = [
-                    ("key-metrics", "Key Metrics"),
-                    ("ratios", "Ratios"),
-                    ("cash-flow-statement-growth", "Cashflow Growth"),
-                    ("income-statement-growth", "Income Growth"),
-                    ("balance-sheet-statement-growth", "Balance Sheet Growth"),
-                    ("enterprise-values", "Enterprise Values"),
-                ]
-                for endpoint, title in endpoints:
-                    metrics = fetch_fmp_metrics(ticker, endpoint)
-                    # Filter and prepare relevant data
-                    if metrics and isinstance(metrics, list):
-                        filtered_metrics = {k: v for k, v in metrics[0].items() if k in [
-                            "MarketCap", "RevenuePerShare", "NetIncomePerShare", "PE", "PriceToSalesRatio"
-                        ]}
-                        visualize_metrics(filtered_metrics, title)
-                    elif metrics:
-                        visualize_metrics(metrics, title)
+                else:
+                    st.write("Current price could not be retrieved. Please ensure the ticker is correct and data is available.")
             else:
                 st.write("DCF Valuation could not be retrieved. Please ensure the ticker is correct and data is available.")
 
