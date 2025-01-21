@@ -112,10 +112,11 @@ if st.button("Run Analysis"):
                 # Include the current price in the analysis
                 if real_time_price:
                     st.write(f"**Current Price (AV):** ${round(real_time_price, 2)}")
+                    percentage_diff = ((real_time_price - suggested_price) / suggested_price) * 100
                     if real_time_price < suggested_price:
-                        st.write("**Interpretation:** The stock is currently underpriced.")
+                        st.write(f"**Interpretation:** The stock is currently underpriced by {abs(round(percentage_diff, 2))}%.")
                     elif real_time_price > suggested_price:
-                        st.write("**Interpretation:** The stock is currently overpriced.")
+                        st.write(f"**Interpretation:** The stock is currently overpriced by {abs(round(percentage_diff, 2))}%.")
                     else:
                         st.write("**Interpretation:** The stock is fairly priced based on the P/S ratio.")
             else:
@@ -131,13 +132,15 @@ if st.button("Run Analysis"):
                     st.subheader(f"DCF Model Valuation for {ticker}")
                     st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${round(dcf_value, 2)}")
                     st.write(f"**Current Price (AV):** ${round(real_time_price, 2)}")
+                    percentage_diff = ((real_time_price - dcf_value) / dcf_value) * 100
                     if real_time_price < dcf_value:
-                        st.write("**Interpretation:** The stock is currently underpriced.")
+                        st.write(f"**Interpretation:** The stock is currently underpriced by {abs(round(percentage_diff, 2))}%.")
                     elif real_time_price > dcf_value:
-                        st.write("**Interpretation:** The stock is currently overpriced.")
+                        st.write(f"**Interpretation:** The stock is currently overpriced by {abs(round(percentage_diff, 2))}%.")
                     else:
                         st.write("**Interpretation:** The stock is fairly priced.")
                 else:
                     st.write("Current price could not be retrieved. Please ensure the ticker is correct and data is available.")
             else:
                 st.write("DCF Valuation could not be retrieved. Please ensure the ticker is correct and data is available.")
+
