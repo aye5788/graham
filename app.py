@@ -63,15 +63,14 @@ def fetch_dcf_valuation(ticker):
             # Extract the latest DCF value
             if data:
                 dcf_value = float(data[0].get('dcf', 0))
-                current_price = float(data[0].get('stockPrice', 0))
-                return dcf_value, current_price
+                return dcf_value
             else:
-                return None, None
+                return None
         except KeyError:
-            return None, None
+            return None
     else:
         st.error(f"Failed to fetch DCF valuation. Status code: {response.status_code}")
-        return None, None
+        return None
 
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
@@ -110,17 +109,23 @@ if st.button("Run Analysis"):
                 st.write(f"**Suggested Fair Price:** ${round(suggested_price, 2)}")
 
         elif menu == "DCF Model Valuation":
-            # Fetch and display DCF valuation using FMP
-            dcf_value, current_price = fetch_dcf_valuation(ticker)
+            # Fetch DCF valuation from FMP
+            dcf_value = fetch_dcf_valuation(ticker)
+
             if dcf_value:
-                st.subheader(f"DCF Model Valuation for {ticker}")
-                st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${round(dcf_value, 2)}")
-                st.write(f"**Current Price (FMP):** ${round(current_price, 2)}")
-                if current_price < dcf_value:
-                    st.write("**Interpretation:** The stock is currently underpriced.")
-                elif current_price > dcf_value:
-                    st.write("**Interpretation:** The stock is currently overpriced.")
+                # Fetch current price from Alpha Vantage
+                if real_time_price:
+                    st.subheader(f"DCF Model Valuation for {ticker}")
+                    st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${round(dcf_value, 2)}")
+                    st.write(f"**Current Price (AV):** ${round(real_time_price, 2)}")
+                    if real_time_price < dcf_value:
+                        st.write("**Interpretation:** The stock is currently underpriced.")
+                    elif real_time_price > dcf_value:
+                        st.write("**Interpretation:** The stock is currently overpriced.")
+                    else:
+                        st.write("**Interpretation:** The stock is fairly priced.")
                 else:
-                    st.write("**Interpretation:** The stock is fairly priced.")
+                    st.write("Current price could not be retrieved. Please ensure the ticker is correct and data is available.")
             else:
                 st.write("DCF Valuation could not be retrieved. Please ensure the ticker is correct and data is available.")
+
