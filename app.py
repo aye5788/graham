@@ -3,7 +3,7 @@ import streamlit as st
 
 # Fetch Financial Data from Alpha Vantage - Overview
 def fetch_financial_data(ticker):
-    api_key = "CLP9IN76G4S8OUXN"
+    api_key = "RUSJILJHKEEHEMJ7"
     url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
     response = requests.get(url)
     if response.status_code == 200:
