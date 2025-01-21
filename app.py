@@ -1,5 +1,6 @@
 import requests
 import streamlit as st
+import pandas as pd
 
 # Fetch Financial Data from Alpha Vantage - Overview
 def fetch_financial_data(ticker):
@@ -60,17 +61,14 @@ def fetch_fmp_metrics(ticker, endpoint):
         st.error(f"Failed to fetch data from {endpoint}. Status code: {response.status_code}")
         return None
 
-# Format and Display Metrics
-def display_metrics(metrics, title):
+# Visualize Metrics with Streamlit
+def visualize_metrics(data, title):
     st.subheader(title)
-    if isinstance(metrics, list) and metrics:  # If the data is a list
-        for key, value in metrics[0].items():  # Display only the first record
-            st.write(f"**{key.replace('_', ' ').title()}:** {value}")
-    elif isinstance(metrics, dict):  # If the data is a dictionary
-        for key, value in metrics.items():
-            st.write(f"**{key.replace('_', ' ').title()}:** {value}")
-    else:
-        st.write("No data available.")
+    df = pd.DataFrame(data, index=[0])
+    st.dataframe(df.T)  # Display as a transposed table
+
+    # Example Bar Chart for Selected Metrics
+    st.bar_chart(df.T)
 
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
@@ -116,6 +114,14 @@ if st.button("Run Analysis"):
                 ]
                 for endpoint, title in endpoints:
                     metrics = fetch_fmp_metrics(ticker, endpoint)
-                    display_metrics(metrics, title)
+                    # Filter and prepare relevant data
+                    if metrics and isinstance(metrics, list):
+                        filtered_metrics = {k: v for k, v in metrics[0].items() if k in [
+                            "MarketCap", "RevenuePerShare", "NetIncomePerShare", "PE", "PriceToSalesRatio"
+                        ]}
+                        visualize_metrics(filtered_metrics, title)
+                    elif metrics:
+                        visualize_metrics(metrics, title)
             else:
                 st.write("DCF Valuation could not be retrieved. Please ensure the ticker is correct and data is available.")
+
