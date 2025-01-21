@@ -60,6 +60,18 @@ def fetch_fmp_metrics(ticker, endpoint):
         st.error(f"Failed to fetch data from {endpoint}. Status code: {response.status_code}")
         return None
 
+# Format and Display Metrics
+def display_metrics(metrics, title):
+    st.subheader(title)
+    if isinstance(metrics, list) and metrics:  # If the data is a list
+        for key, value in metrics[0].items():  # Display only the first record
+            st.write(f"**{key.replace('_', ' ').title()}:** {value}")
+    elif isinstance(metrics, dict):  # If the data is a dictionary
+        for key, value in metrics.items():
+            st.write(f"**{key.replace('_', ' ').title()}:** {value}")
+    else:
+        st.write("No data available.")
+
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
 
@@ -95,19 +107,15 @@ if st.button("Run Analysis"):
 
                 # Fetch additional financial metrics from FMP
                 endpoints = [
-                    "key-metrics",
-                    "ratios",
-                    "cash-flow-statement-growth",
-                    "income-statement-growth",
-                    "balance-sheet-statement-growth",
-                    "enterprise-values",
+                    ("key-metrics", "Key Metrics"),
+                    ("ratios", "Ratios"),
+                    ("cash-flow-statement-growth", "Cashflow Growth"),
+                    ("income-statement-growth", "Income Growth"),
+                    ("balance-sheet-statement-growth", "Balance Sheet Growth"),
+                    ("enterprise-values", "Enterprise Values"),
                 ]
-                for endpoint in endpoints:
-                    st.subheader(f"Data from {endpoint.replace('-', ' ').title()}")
+                for endpoint, title in endpoints:
                     metrics = fetch_fmp_metrics(ticker, endpoint)
-                    if metrics:
-                        st.write(metrics[0] if isinstance(metrics, list) else metrics)
-                    else:
-                        st.write("No data available for this endpoint.")
+                    display_metrics(metrics, title)
             else:
                 st.write("DCF Valuation could not be retrieved. Please ensure the ticker is correct and data is available.")
