@@ -85,7 +85,7 @@ if st.button("Run Analysis"):
     # Fetch data from overview
     data = fetch_financial_data(ticker)
     if data:
-        # Fetch real-time price (optional)
+        # Fetch real-time price
         real_time_price = fetch_real_time_price(ticker)
 
         if menu == "Growth Stock Analysis":
@@ -101,6 +101,7 @@ if st.button("Run Analysis"):
             market_cap = float(data.get("MarketCapitalization", 0))
             revenue = float(data.get("RevenueTTM", 0))
             shares_outstanding = float(data.get("SharesOutstanding", 0))
+
             if revenue > 0 and shares_outstanding > 0:
                 ps_ratio = market_cap / revenue
                 suggested_price = (ps_ratio * revenue) / shares_outstanding
@@ -108,12 +109,24 @@ if st.button("Run Analysis"):
                 st.write(f"**Price-to-Sales (P/S) Ratio:** {round(ps_ratio, 2)}")
                 st.write(f"**Suggested Fair Price:** ${round(suggested_price, 2)}")
 
+                # Include the current price in the analysis
+                if real_time_price:
+                    st.write(f"**Current Price (AV):** ${round(real_time_price, 2)}")
+                    if real_time_price < suggested_price:
+                        st.write("**Interpretation:** The stock is currently underpriced.")
+                    elif real_time_price > suggested_price:
+                        st.write("**Interpretation:** The stock is currently overpriced.")
+                    else:
+                        st.write("**Interpretation:** The stock is fairly priced based on the P/S ratio.")
+            else:
+                st.write("P/S Ratio could not be calculated. Please ensure MarketCap and Revenue data are available.")
+
         elif menu == "DCF Model Valuation":
             # Fetch DCF valuation from FMP
             dcf_value = fetch_dcf_valuation(ticker)
 
             if dcf_value:
-                # Fetch current price from Alpha Vantage
+                # Include the current price in the analysis
                 if real_time_price:
                     st.subheader(f"DCF Model Valuation for {ticker}")
                     st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${round(dcf_value, 2)}")
@@ -128,4 +141,3 @@ if st.button("Run Analysis"):
                     st.write("Current price could not be retrieved. Please ensure the ticker is correct and data is available.")
             else:
                 st.write("DCF Valuation could not be retrieved. Please ensure the ticker is correct and data is available.")
-
