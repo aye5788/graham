@@ -80,41 +80,6 @@ def visualize_metrics(data, title):
     if numeric_data:
         st.bar_chart(pd.DataFrame(numeric_data, index=[0]).T)
 
-# Updated main loop for handling metrics
-if menu == "DCF Model Valuation":
-    dcf_value = fetch_dcf_valuation(ticker)
-
-    if dcf_value:
-        if real_time_price:
-            st.subheader(f"DCF Model Valuation for {ticker}")
-            st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${round(dcf_value, 2)}")
-            st.write(f"**Current Price (AV):** ${round(real_time_price, 2)}")
-            percentage_diff = ((real_time_price - dcf_value) / dcf_value) * 100
-            if real_time_price < dcf_value:
-                st.write(f"**Interpretation:** The stock is currently underpriced by {abs(round(percentage_diff, 2))}%.")
-            elif real_time_price > dcf_value:
-                st.write(f"**Interpretation:** The stock is currently overpriced by {abs(round(percentage_diff, 2))}%.")
-            else:
-                st.write("**Interpretation:** The stock is fairly priced.")
-
-        # Fetch and visualize additional financial metrics
-        endpoints = [
-            ("key-metrics", "Key Metrics"),
-            ("ratios", "Ratios"),
-            ("cash-flow-statement-growth", "Cashflow Growth"),
-            ("income-statement-growth", "Income Growth"),
-            ("balance-sheet-statement-growth", "Balance Sheet Growth"),
-            ("enterprise-values", "Enterprise Values"),
-        ]
-        for endpoint, title in endpoints:
-            metrics = fetch_fmp_metrics(ticker, endpoint)
-            if metrics and isinstance(metrics, list):  # Ensure we get a list of results
-                visualize_metrics(metrics[0], title)  # Visualize the first result
-            elif metrics and isinstance(metrics, dict):  # Handle dict case
-                visualize_metrics(metrics, title)
-            else:
-                st.write(f"No data available for {title}.")
-
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
 
@@ -124,6 +89,7 @@ menu = st.sidebar.radio("Select Analysis Type", ["Stock Valuation (P/S Ratio)", 
 # User Input
 ticker = st.text_input("Enter Stock Ticker:", value="AAPL").upper()
 
+# Run Analysis when the button is clicked
 if st.button("Run Analysis"):
     # Fetch data from overview
     data = fetch_financial_data(ticker)
