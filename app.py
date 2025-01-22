@@ -107,19 +107,19 @@ if st.button("Run Analysis"):
             operating_cf_growth = float(data.get("OperatingCashFlowGrowth", 0)) * 100
 
             st.subheader(f"Growth Stock Analysis for {ticker}")
-            st.write(f"**Revenue Growth (YoY):** {revenue_growth:.1f}%")
-            st.write(f"**Net Income Growth (YoY):** {net_income_growth:.1f}%")
-            st.write(f"**EPS Growth (YoY):** {eps_growth:.1f}%")
-            st.write(f"**Operating Cash Flow Growth (YoY):** {operating_cf_growth:.1f}%")
-            st.write(f"**Free Cash Flow Growth (YoY):** {fcf_growth:.1f}%")
+            st.write(f"**Revenue Growth (YoY):** {revenue_growth:.1f}%" if revenue_growth is not None else "**Revenue Growth (YoY):** N/A")
+            st.write(f"**Net Income Growth (YoY):** {net_income_growth:.1f}%" if net_income_growth is not None else "**Net Income Growth (YoY):** N/A")
+            st.write(f"**EPS Growth (YoY):** {eps_growth:.1f}%" if eps_growth is not None else "**EPS Growth (YoY):** N/A")
+            st.write(f"**Operating Cash Flow Growth (YoY):** {operating_cf_growth:.1f}%" if operating_cf_growth is not None else "**Operating Cash Flow Growth (YoY):** N/A")
+            st.write(f"**Free Cash Flow Growth (YoY):** {fcf_growth:.1f}%" if fcf_growth is not None else "**Free Cash Flow Growth (YoY):** N/A")
 
             # Generate Cohere AI Insights
             metrics = {
-                "Revenue Growth": f"{revenue_growth:.1f}%",
-                "Net Income Growth": f"{net_income_growth:.1f}%",
-                "EPS Growth": f"{eps_growth:.1f}%",
-                "Operating Cash Flow Growth": f"{operating_cf_growth:.1f}%",
-                "Free Cash Flow Growth": f"{fcf_growth:.1f}%"
+                "Revenue Growth": f"{revenue_growth:.1f}%" if revenue_growth is not None else "N/A",
+                "Net Income Growth": f"{net_income_growth:.1f}%" if net_income_growth is not None else "N/A",
+                "EPS Growth": f"{eps_growth:.1f}%" if eps_growth is not None else "N/A",
+                "Operating Cash Flow Growth": f"{operating_cf_growth:.1f}%" if operating_cf_growth is not None else "N/A",
+                "Free Cash Flow Growth": f"{fcf_growth:.1f}%" if fcf_growth is not None else "N/A"
             }
             insights = generate_cohere_insights(metrics)
             if insights:
