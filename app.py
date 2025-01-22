@@ -1,5 +1,53 @@
 import requests
 import streamlit as st
+from cohere import Client
+
+# Initialize Cohere API
+COHERE_API_KEY = "i6rCnd8kHKs3DKmfo2glf48xftmfyOZ9kmuP9Gqc"
+cohere_client = Client(COHERE_API_KEY)
+
+# Fetch data from FMP API
+def fetch_fmp_data(endpoint, ticker, period="annual", limit=1):
+    api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"
+    url = f"https://financialmodelingprep.com/api/v3/{endpoint}/{ticker}?period={period}&limit={limit}&apikey={api_key}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        try:
+            data = response.json()
+            return data if isinstance(data, list) else [data]
+        except ValueError:
+            st.error("Invalid response received from API.")
+            return []
+    else:
+        st.error(f"Failed to fetch data from {endpoint}. Status code: {response.status_code}")
+        return []
+
+# Format and display growth metrics
+def display_growth_metrics(title, metrics):
+    st.subheader(title)
+    if metrics:
+        for key, value in metrics.items():
+            # Convert to percentage and round to two decimals
+            if isinstance(value, (int, float)):
+                st.write(f"**{key.replace('growth', '').capitalize()}**: {round(value * 100, 2)}%")
+    else:
+        st.write("No relevant data available.")
+
+# Generate insights using Cohere AI
+def generate_cohere_insights(metrics):
+    try:
+        prompt = f"""Analyze the following growth metrics and provide key insights and action points for investors:
+        {metrics}
+        """
+        response = cohere_client.generate(
+            model="command-xlarge-nightly",
+            prompt=prompt,
+            max_tokens=300,
+        )
+        return response.generations[0].text.strip()
+    except Exception as e:
+        st.error(f"Failed to generate insights with Cohere: {e}")
+        return None
 
 # Fetch Financial Data from Alpha Vantage - Overview
 def fetch_financial_data(ticker):
@@ -20,6 +68,7 @@ def fetch_real_time_price(ticker):
     if response.status_code == 200:
         data = response.json()
         try:
+            # Get the most recent closing price from the time series data
             last_refreshed = data["Meta Data"]["3. Last Refreshed"]
             real_time_price = float(data["Time Series (1min)"][last_refreshed]["4. close"])
             return real_time_price
@@ -48,75 +97,59 @@ def fetch_dcf_valuation(ticker):
         st.error(f"Failed to fetch DCF valuation. Status code: {response.status_code}")
         return None
 
-# Cohere integration for insights
-def interpret_outputs(prompt, data):
-    cohere_api_key = "i6rCnd8kHKs3DKmfo2glf48xftmfyOZ9kmuP9Gqc"
-    cohere_endpoint = "https://api.cohere.ai/v1/generate"
-    headers = {"Authorization": f"Bearer {cohere_api_key}"}
-    payload = {
-        "model": "command-xlarge-nightly",
-        "prompt": f"{prompt}: {data}",
-        "max_tokens": 100,
-        "temperature": 0.7,
-    }
-    response = requests.post(cohere_endpoint, headers=headers, json=payload)
-    if response.status_code == 200:
-        return response.json()["generations"][0]["text"].strip()
-    else:
-        st.error(f"Failed to generate insights with Cohere. Error: {response.text}")
-        return None
-
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
 
 # Sidebar Menu
-menu = st.sidebar.radio("Select Analysis Type", ["Stock Valuation (P/S Ratio)", "Growth Stock Analysis", "DCF Model Valuation"])
+menu = st.sidebar.radio("Select Analysis Type", ["Stock Valuation (P/S Ratio)", "Growth Stock Analysis", "DCF Model Valuation", "Financial Metrics Analysis"])
 
 # User Input
 ticker = st.text_input("Enter Stock Ticker:", value="AAPL").upper()
 
 if st.button("Run Analysis"):
-    # Fetch data from overview
-    data = fetch_financial_data(ticker)
-    if data:
-        # Fetch real-time price
-        real_time_price = fetch_real_time_price(ticker)
+    if menu == "Growth Stock Analysis":
+        st.subheader(f"Growth Stock Analysis for {ticker}")
+        data = fetch_financial_data(ticker)
+        if data:
+            revenue_growth = float(data.get("QuarterlyRevenueGrowthYOY", 0))
+            net_income_growth = float(data.get("NetIncomeGrowth", 0))
+            st.write(f"**Revenue Growth (YoY):** {round(revenue_growth * 100, 2)}%")
+            st.write(f"**Net Income Growth (YoY):** {round(net_income_growth * 100, 2)}%")
 
-        if menu == "Growth Stock Analysis":
-            try:
-                revenue_growth = float(data.get("QuarterlyRevenueGrowthYOY", 0)) * 100
-                net_income_growth = float(data.get("NetIncomeGrowthYOY", 0)) * 100
-                eps_growth = float(data.get("EpsGrowthYOY", 0)) * 100
-                operating_cf_growth = float(data.get("OperatingCashFlowGrowthYOY", 0)) * 100
-                free_cf_growth = float(data.get("FreeCashFlowGrowthYOY", 0)) * 100
-            except ValueError:
-                st.error("Error: Some financial metrics could not be converted to numeric values.")
+        # Fetch Financial Growth Metrics
+        financial_growth_data = fetch_fmp_data("financial-growth", ticker)
+        if financial_growth_data:
+            display_growth_metrics("Financial Growth Metrics", financial_growth_data[0])
 
-            st.subheader(f"Growth Stock Analysis for {ticker}")
-            st.write(f"**Revenue Growth (YoY):** {round(revenue_growth, 2)}%")
-            st.write(f"**Net Income Growth (YoY):** {round(net_income_growth, 2)}%")
-            st.write(f"**EPS Growth (YoY):** {round(eps_growth, 2)}%")
-            st.write(f"**Operating Cash Flow Growth (YoY):** {round(operating_cf_growth, 2)}%")
-            st.write(f"**Free Cash Flow Growth (YoY):** {round(free_cf_growth, 2)}%")
+        # Fetch Income Growth Metrics
+        income_growth_data = fetch_fmp_data("income-statement-growth", ticker)
+        if income_growth_data:
+            display_growth_metrics("Income Growth Metrics", income_growth_data[0])
 
-            insights = interpret_outputs("growth stock analysis", {
-                "Revenue Growth": f"{round(revenue_growth, 2)}%",
-                "Net Income Growth": f"{round(net_income_growth, 2)}%",
-                "EPS Growth": f"{round(eps_growth, 2)}%",
-                "Operating Cash Flow Growth": f"{round(operating_cf_growth, 2)}%",
-                "Free Cash Flow Growth": f"{round(free_cf_growth, 2)}%",
-            })
-            if insights:
-                st.subheader("Cohere AI Insights")
-                st.write(insights)
+        # Fetch Balance Sheet Growth Metrics
+        balance_sheet_growth_data = fetch_fmp_data("balance-sheet-statement-growth", ticker)
+        if balance_sheet_growth_data:
+            display_growth_metrics("Balance Sheet Growth Metrics", balance_sheet_growth_data[0])
 
-        elif menu == "Stock Valuation (P/S Ratio)":
-            try:
-                market_cap = float(data.get("MarketCapitalization", 0))
-                revenue = float(data.get("RevenueTTM", 0))
-                shares_outstanding = float(data.get("SharesOutstanding", 0))
-            except ValueError:
-                st.error("Error: Some financial metrics could not be converted to numeric values.")
+        # Generate insights with Cohere AI
+        st.subheader("Cohere AI Insights")
+        metrics = {
+            "revenue_growth": revenue_growth,
+            "net_income_growth": net_income_growth,
+            **financial_growth_data[0] if financial_growth_data else {},
+            **income_growth_data[0] if income_growth_data else {},
+            **balance_sheet_growth_data[0] if balance_sheet_growth_data else {},
+        }
+        insights = generate_cohere_insights(metrics)
+        if insights:
+            st.write(insights)
+
+    elif menu == "Stock Valuation (P/S Ratio)":
+        data = fetch_financial_data(ticker)
+        if data:
+            market_cap = float(data.get("MarketCapitalization", 0))
+            revenue = float(data.get("RevenueTTM", 0))
+            shares_outstanding = float(data.get("SharesOutstanding", 0))
 
             if revenue > 0 and shares_outstanding > 0:
                 ps_ratio = market_cap / revenue
@@ -125,35 +158,22 @@ if st.button("Run Analysis"):
                 st.write(f"**Price-to-Sales (P/S) Ratio:** {round(ps_ratio, 2)}")
                 st.write(f"**Suggested Fair Price:** ${round(suggested_price, 2)}")
 
-                if real_time_price:
-                    st.write(f"**Current Price (AV):** ${round(real_time_price, 2)}")
-                    percentage_diff = ((real_time_price - suggested_price) / suggested_price) * 100
-                    if real_time_price < suggested_price:
-                        st.write(f"**Interpretation:** The stock is currently underpriced by {abs(round(percentage_diff, 2))}%.")
-                    elif real_time_price > suggested_price:
-                        st.write(f"**Interpretation:** The stock is currently overpriced by {abs(round(percentage_diff, 2))}%.")
-                    else:
-                        st.write("**Interpretation:** The stock is fairly priced based on the P/S ratio.")
-            else:
-                st.write("P/S Ratio could not be calculated. Please ensure MarketCap and Revenue data are available.")
+    elif menu == "DCF Model Valuation":
+        real_time_price = fetch_real_time_price(ticker)
+        dcf_value = fetch_dcf_valuation(ticker)
 
-        elif menu == "DCF Model Valuation":
-            dcf_value = fetch_dcf_valuation(ticker)
+        if dcf_value:
+            st.subheader(f"DCF Model Valuation for {ticker}")
+            st.write(f"**DCF Valuation:** ${round(dcf_value, 2)}")
+            if real_time_price:
+                st.write(f"**Current Price:** ${round(real_time_price, 2)}")
 
-            if dcf_value:
-                if real_time_price:
-                    st.subheader(f"DCF Model Valuation for {ticker}")
-                    st.write(f"**Discounted Cash Flow (DCF) Valuation:** ${round(dcf_value, 2)}")
-                    st.write(f"**Current Price (AV):** ${round(real_time_price, 2)}")
-                    percentage_diff = ((real_time_price - dcf_value) / dcf_value) * 100
-                    if real_time_price < dcf_value:
-                        st.write(f"**Interpretation:** The stock is currently underpriced by {abs(round(percentage_diff, 2))}%.")
-                    elif real_time_price > dcf_value:
-                        st.write(f"**Interpretation:** The stock is currently overpriced by {abs(round(percentage_diff, 2))}%.")
-                    else:
-                        st.write("**Interpretation:** The stock is fairly priced.")
-                else:
-                    st.write("Current price could not be retrieved. Please ensure the ticker is correct and data is available.")
-            else:
-                st.write("DCF Valuation could not be retrieved. Please ensure the ticker is correct and data is available.")
+    elif menu == "Financial Metrics Analysis":
+        # Fetch and display key metrics
+        key_metrics_data = fetch_fmp_data("key-metrics", ticker)
+        if key_metrics_data:
+            st.subheader("Key Metrics")
+            for metric, value in key_metrics_data[0].items():
+                if isinstance(value, (int, float)):
+                    st.write(f"**{metric.replace('_', ' ').capitalize()}**: {value}")
 
