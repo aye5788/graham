@@ -33,7 +33,7 @@ def generate_cohere_insights(metrics):
     cohere_api_key = "i6rCnd8kHKs3DKmfo2glf48xftmfyOZ9kmuP9Gqc"
     cohere_endpoint = "https://api.cohere.ai/generate"
     payload = {
-        "model": "command-xlarge",
+        "model": "command-xlarge-nightly",  # Ensure this model ID is valid for your API key
         "prompt": f"Provide insights on the following financial metrics: {metrics}",
         "max_tokens": 300,
         "temperature": 0.7
@@ -42,9 +42,14 @@ def generate_cohere_insights(metrics):
     response = requests.post(cohere_endpoint, json=payload, headers=headers)
     if response.status_code == 200:
         try:
-            return response.json()["generations"][0]["text"]
-        except KeyError:
-            st.error("Failed to parse Cohere response. Ensure the model ID and API key are correct.")
+            response_json = response.json()
+            if "generations" in response_json and len(response_json["generations"]) > 0:
+                return response_json["generations"][0]["text"]
+            else:
+                st.error("Cohere API returned an unexpected response structure.")
+                return None
+        except KeyError as e:
+            st.error(f"Failed to parse Cohere response: {e}")
             return None
     else:
         st.error(f"Failed to generate insights with Cohere. Status code: {response.status_code}")
@@ -115,4 +120,3 @@ if st.button("Run Analysis"):
     elif menu == "DCF Model Valuation":
         # Placeholder for DCF Model Valuation
         st.write("DCF Model Valuation is under development.")
-
