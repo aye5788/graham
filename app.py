@@ -59,6 +59,12 @@ def fetch_dcf_valuation(ticker):
         st.error(f"Failed to fetch DCF valuation. Status code: {response.status_code}")
         return None
 
+# Helper function to format metrics
+def format_metric(value):
+    if value is not None:
+        return f"{value * 100:.2f}%"  # Convert to percentage and round to 2 decimal places
+    return "N/A"
+
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
 
@@ -85,15 +91,15 @@ if st.button("Run Analysis"):
             # Display Income Growth Metrics
             if income_growth_data and isinstance(income_growth_data, list):
                 latest_income_growth = income_growth_data[0]
-                st.write(f"**Revenue Growth (YoY):** {latest_income_growth.get('growthRevenue', 'N/A')}")
-                st.write(f"**Net Income Growth (YoY):** {latest_income_growth.get('growthNetIncome', 'N/A')}")
-                st.write(f"**EPS Growth (YoY):** {latest_income_growth.get('growthEPS', 'N/A')}")
+                st.write(f"**Revenue Growth (YoY):** {format_metric(latest_income_growth.get('growthRevenue'))}")
+                st.write(f"**Net Income Growth (YoY):** {format_metric(latest_income_growth.get('growthNetIncome'))}")
+                st.write(f"**EPS Growth (YoY):** {format_metric(latest_income_growth.get('growthEPS'))}")
 
             # Display Cash Flow Growth Metrics
             if cashflow_growth_data and isinstance(cashflow_growth_data, list):
                 latest_cashflow_growth = cashflow_growth_data[0]
-                st.write(f"**Operating Cash Flow Growth (YoY):** {latest_cashflow_growth.get('growthOperatingCashFlow', 'N/A')}")
-                st.write(f"**Free Cash Flow Growth (YoY):** {latest_cashflow_growth.get('growthFreeCashFlow', 'N/A')}")
+                st.write(f"**Operating Cash Flow Growth (YoY):** {format_metric(latest_cashflow_growth.get('growthOperatingCashFlow'))}")
+                st.write(f"**Free Cash Flow Growth (YoY):** {format_metric(latest_cashflow_growth.get('growthFreeCashFlow'))}")
             else:
                 st.write("No growth metrics available for the selected ticker.")
 
