@@ -1,122 +1,129 @@
 import requests
 import streamlit as st
 
-# Function to fetch financial growth data
-def fetch_financial_growth_data(ticker, endpoint):
-    api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"
-    url = f"https://financialmodelingprep.com/api/v3/{endpoint}/{ticker}?period=annual&apikey={api_key}"
+# Fetch Financial Data from Alpha Vantage - Overview
+def fetch_financial_data(ticker):
+    api_key = "RUSJILJHKEEHEMJ7"
+    url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
     response = requests.get(url)
     if response.status_code == 200:
         return response.json()
     else:
-        st.error(f"Failed to fetch data from {endpoint}. Status code: {response.status_code}")
+        st.error(f"API request failed with status code: {response.status_code}")
         return None
 
-# Function to fetch real-time price
-def fetch_real_time_price(ticker):
+# Fetch Free Cash Flow (FCF) from Alpha Vantage
+def fetch_free_cash_flow(ticker):
     api_key = "RUSJILJHKEEHEMJ7"
-    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={ticker}&interval=1min&apikey={api_key}"
+    url = f"https://www.alphavantage.co/query?function=CASH_FLOW&symbol={ticker}&apikey={api_key}"
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
         try:
-            last_refreshed = data["Meta Data"]["3. Last Refreshed"]
-            return float(data["Time Series (1min)"][last_refreshed]["4. close"])
+            # Extracting the most recent annual free cash flow
+            annual_data = data['annualReports']
+            if annual_data:
+                # Use the most recent year's free cash flow value
+                fcf = float(annual_data[0]['freeCashFlow'])
+                return fcf
+            else:
+                return None
         except KeyError:
             return None
     else:
-        st.error(f"Failed to fetch real-time price. Status code: {response.status_code}")
+        st.error(f"Failed to fetch Free Cash Flow data. Status code: {response.status_code}")
         return None
 
-# Function to generate insights with Cohere AI
+# Fetch EPS Data from Financial Modeling Prep
+def fetch_eps_data(ticker):
+    api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"
+    url = f"https://financialmodelingprep.com/api/v3/key-metrics/{ticker}?period=annual&apikey={api_key}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        try:
+            if data:
+                eps_growth = data[0].get('epsGrowth', 0)
+                return eps_growth
+            else:
+                return 0
+        except KeyError:
+            return 0
+    else:
+        st.error(f"Failed to fetch EPS data. Status code: {response.status_code}")
+        return 0
+
+# Generate Insights with Cohere
 def generate_cohere_insights(metrics):
     cohere_api_key = "i6rCnd8kHKs3DKmfo2glf48xftmfyOZ9kmuP9Gqc"
     cohere_endpoint = "https://api.cohere.ai/generate"
     payload = {
-        "model": "command-xlarge-nightly",  # Ensure this model ID is valid for your API key
+        "model": "command-xlarge-nightly",  # Replace with available model if necessary
         "prompt": f"Provide insights on the following financial metrics: {metrics}",
         "max_tokens": 300,
         "temperature": 0.7
     }
     headers = {"Authorization": f"Bearer {cohere_api_key}"}
     response = requests.post(cohere_endpoint, json=payload, headers=headers)
+
     if response.status_code == 200:
         try:
             response_json = response.json()
-            if "generations" in response_json and len(response_json["generations"]) > 0:
+            if "generations" in response_json:
                 return response_json["generations"][0]["text"]
             else:
-                st.error("Cohere API returned an unexpected response structure.")
-                return None
-        except KeyError as e:
+                raise ValueError("Unexpected response structure")
+        except Exception as e:
             st.error(f"Failed to parse Cohere response: {e}")
+            st.write("Cohere Response Debug:", response.text)
             return None
     else:
         st.error(f"Failed to generate insights with Cohere. Status code: {response.status_code}")
+        st.write("Cohere API Debug:", response.text)
         return None
 
-# Streamlit app setup
+# Streamlit App
 st.title("Enhanced Stock Analysis Tool")
 
-menu = st.sidebar.radio("Select Analysis Type", ["Growth Stock Analysis", "DCF Model Valuation"])
+# Sidebar Menu
+menu = st.sidebar.radio("Select Analysis Type", ["Stock Valuation (P/S Ratio)", "Growth Stock Analysis", "DCF Model Valuation"])
 
+# User Input
 ticker = st.text_input("Enter Stock Ticker:", value="AAPL").upper()
 
 if st.button("Run Analysis"):
-    if menu == "Growth Stock Analysis":
-        # Fetch financial growth data
-        financial_growth_data = fetch_financial_growth_data(ticker, "financial-growth")
-        income_growth_data = fetch_financial_growth_data(ticker, "income-statement-growth")
-        balance_sheet_growth_data = fetch_financial_growth_data(ticker, "balance-sheet-statement-growth")
-
-        # Extract metrics
-        revenue_growth = (
-            financial_growth_data[0].get("revenueGrowth", 0) * 100 if financial_growth_data else 0
-        )
-        net_income_growth = (
-            income_growth_data[0].get("growthNetIncome", 0) * 100 if income_growth_data else 0
-        )
-        eps_growth = (
-            financial_growth_data[0].get("epsgrowth", 0) * 100 if financial_growth_data else 0
-        )
-        operating_cash_flow_growth = (
-            financial_growth_data[0].get("operatingCashFlowGrowth", 0) * 100
-            if financial_growth_data
-            else 0
-        )
-        free_cash_flow_growth = (
-            financial_growth_data[0].get("freeCashFlowGrowth", 0) * 100
-            if financial_growth_data
-            else 0
-        )
+    # Fetch data from overview
+    data = fetch_financial_data(ticker)
+    if data:
+        # Fetch EPS Growth
+        eps_growth = fetch_eps_data(ticker)
+        # Fetch Free Cash Flow Growth (if available)
+        fcf_growth = fetch_free_cash_flow(ticker)
 
         # Display Growth Stock Analysis
-        st.subheader(f"Growth Stock Analysis for {ticker}")
-        st.write(f"**Revenue Growth (YoY):** {revenue_growth:.1f}%")
-        st.write(f"**Net Income Growth (YoY):** {net_income_growth:.1f}%")
-        st.write(f"**EPS Growth (YoY):** {eps_growth:.1f}%")
-        st.write(f"**Operating Cash Flow Growth (YoY):** {operating_cash_flow_growth:.1f}%")
-        st.write(f"**Free Cash Flow Growth (YoY):** {free_cash_flow_growth:.1f}%")
+        if menu == "Growth Stock Analysis":
+            revenue_growth = float(data.get("RevenueGrowth", 0)) * 100
+            net_income_growth = float(data.get("NetIncomeGrowth", 0)) * 100
+            operating_cf_growth = float(data.get("OperatingCashFlowGrowth", 0)) * 100
 
-        # Generate insights using Cohere AI
-        st.subheader("Cohere AI Insights")
-        metrics = {
-            "Revenue Growth": f"{revenue_growth:.1f}%",
-            "Net Income Growth": f"{net_income_growth:.1f}%",
-            "EPS Growth": f"{eps_growth:.1f}%",
-            "Operating Cash Flow Growth": f"{operating_cash_flow_growth:.1f}%",
-            "Free Cash Flow Growth": f"{free_cash_flow_growth:.1f}%"
-        }
-        insights = generate_cohere_insights(metrics)
-        if insights:
-            st.markdown(
-                f"""
-                <div style="word-wrap: break-word; white-space: pre-wrap;">
-                    {insights}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-    elif menu == "DCF Model Valuation":
-        # Placeholder for DCF Model Valuation
-        st.write("DCF Model Valuation is under development.")
+            st.subheader(f"Growth Stock Analysis for {ticker}")
+            st.write(f"**Revenue Growth (YoY):** {revenue_growth:.1f}%")
+            st.write(f"**Net Income Growth (YoY):** {net_income_growth:.1f}%")
+            st.write(f"**EPS Growth (YoY):** {eps_growth:.1f}%")
+            st.write(f"**Operating Cash Flow Growth (YoY):** {operating_cf_growth:.1f}%")
+            st.write(f"**Free Cash Flow Growth (YoY):** {fcf_growth:.1f}%")
+
+            # Generate Cohere AI Insights
+            metrics = {
+                "Revenue Growth": f"{revenue_growth:.1f}%",
+                "Net Income Growth": f"{net_income_growth:.1f}%",
+                "EPS Growth": f"{eps_growth:.1f}%",
+                "Operating Cash Flow Growth": f"{operating_cf_growth:.1f}%",
+                "Free Cash Flow Growth": f"{fcf_growth:.1f}%"
+            }
+            insights = generate_cohere_insights(metrics)
+            if insights:
+                st.subheader("Cohere AI Insights")
+                st.write(insights)
+            else:
+                st.error("Failed to generate insights with Cohere.")
