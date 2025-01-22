@@ -41,9 +41,13 @@ def generate_cohere_insights(metrics):
     headers = {"Authorization": f"Bearer {cohere_api_key}"}
     response = requests.post(cohere_endpoint, json=payload, headers=headers)
     if response.status_code == 200:
-        return response.json()["generations"][0]["text"]
+        try:
+            return response.json()["generations"][0]["text"]
+        except KeyError:
+            st.error("Failed to parse Cohere response. Ensure the model ID and API key are correct.")
+            return None
     else:
-        st.error(f"Failed to generate insights with Cohere. Error: {response.status_code}, {response.json()}")
+        st.error(f"Failed to generate insights with Cohere. Status code: {response.status_code}")
         return None
 
 # Streamlit app setup
@@ -61,11 +65,25 @@ if st.button("Run Analysis"):
         balance_sheet_growth_data = fetch_financial_growth_data(ticker, "balance-sheet-statement-growth")
 
         # Extract metrics
-        revenue_growth = financial_growth_data[0].get("revenueGrowth", 0) * 100 if financial_growth_data else 0
-        net_income_growth = income_growth_data[0].get("growthNetIncome", 0) * 100 if income_growth_data else 0
-        eps_growth = financial_growth_data[0].get("epsGrowth", 0) * 100 if financial_growth_data else 0
-        operating_cash_flow_growth = financial_growth_data[0].get("operatingCashFlowGrowth", 0) * 100 if financial_growth_data else 0
-        free_cash_flow_growth = financial_growth_data[0].get("freeCashFlowGrowth", 0) * 100 if financial_growth_data else 0
+        revenue_growth = (
+            financial_growth_data[0].get("revenueGrowth", 0) * 100 if financial_growth_data else 0
+        )
+        net_income_growth = (
+            income_growth_data[0].get("growthNetIncome", 0) * 100 if income_growth_data else 0
+        )
+        eps_growth = (
+            financial_growth_data[0].get("epsgrowth", 0) * 100 if financial_growth_data else 0
+        )
+        operating_cash_flow_growth = (
+            financial_growth_data[0].get("operatingCashFlowGrowth", 0) * 100
+            if financial_growth_data
+            else 0
+        )
+        free_cash_flow_growth = (
+            financial_growth_data[0].get("freeCashFlowGrowth", 0) * 100
+            if financial_growth_data
+            else 0
+        )
 
         # Display Growth Stock Analysis
         st.subheader(f"Growth Stock Analysis for {ticker}")
@@ -95,6 +113,6 @@ if st.button("Run Analysis"):
                 unsafe_allow_html=True
             )
     elif menu == "DCF Model Valuation":
-        # Add your DCF model valuation logic here
+        # Placeholder for DCF Model Valuation
         st.write("DCF Model Valuation is under development.")
 
