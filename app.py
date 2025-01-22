@@ -137,9 +137,19 @@ if st.button("Run Analysis"):
                     else:
                         st.write("**Interpretation:** The stock is fairly priced based on the P/S ratio.")
 
-                # Cohere AI Interpretation
-                insights = interpret_outputs("P/S Ratio Analysis", valuation_data)
-                if insights:
-                    st.subheader("Cohere AI Insights")
-                    st.write(insights)
+               # Cohere AI Interpretation
+def interpret_outputs(output_type, data):
+    prompt = f"Given the following {output_type} data: {data}, provide a summary and actionable insights for an investor."
+    try:
+        response = co.generate(
+            model="xlarge",
+            prompt=prompt,
+            max_tokens=150,
+            temperature=0.7,
+        )
+        return response.generations[0].text.strip()
+    except Exception as e:
+        st.error(f"Failed to generate insights with Cohere. Error: {e}")
+        return None
+
 
