@@ -3,22 +3,6 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Fetch Financial Data from Alpha Vantage - Overview
-def fetch_financial_data(ticker):
-    api_key = "RUSJILJHKEEHEMJ7"  # Alpha Vantage API Key
-    url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        if "Symbol" in data:
-            return data
-        else:
-            st.error("No data found in Alpha Vantage Overview response.")
-            return None
-    else:
-        st.error(f"Alpha Vantage Overview request failed. Status code: {response.status_code}")
-        return None
-
 # Fetch DCF Valuation from FMP DCF Reports API
 def fetch_dcf_valuation(ticker):
     api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"  # FMP API Key
@@ -70,46 +54,38 @@ def plot_growth_metrics(growth_data):
             "Financial Growth": "totalEquityGrowth"
         }
 
-        # Plot each metric
         for title, metric in metrics.items():
-            if metric in df.columns:
-                plt.figure(figsize=(10, 6))
-                plt.plot(df.index, df[metric].astype(float) * 100, marker='o')
-                plt.title(f"{title} Over Time", fontsize=16)
-                plt.ylabel("Growth (%)", fontsize=12)
-                plt.xlabel("Date", fontsize=12)
-                plt.grid(True)
-                st.pyplot(plt)
+            if metric in df.columns and not df[metric].isnull().all():
+                st.write(f"### {title}")
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.plot(df.index, df[metric].astype(float) * 100, marker='o', label=title)
+                ax.set_title(f"{title} Over Time", fontsize=16)
+                ax.set_ylabel("Growth (%)", fontsize=12)
+                ax.set_xlabel("Date", fontsize=12)
+                ax.grid(True)
+                ax.legend()
+                st.pyplot(fig)
             else:
-                st.warning(f"{metric} data not available.")
+                st.warning(f"{title} data not available.")
 
 # Streamlit App
-st.title("Enhanced Stock Analysis Tool")
-
-# Sidebar Menu
-menu = st.sidebar.radio("Select Analysis Type", ["Stock Valuation (P/S Ratio)", "Growth Stock Analysis", "DCF Model Valuation"])
+st.title("DCF Analysis and Growth Metrics Visualization")
 
 # User Input
 ticker = st.text_input("Enter Stock Ticker:", value="AAPL").upper()
 
 if st.button("Run Analysis"):
-    # Fetch data from Alpha Vantage Overview
-    data = fetch_financial_data(ticker)
-    if data:
-        # Display DCF Model Valuation
-        if menu == "DCF Model Valuation":
-            dcf_data = fetch_dcf_valuation(ticker)
-            if dcf_data:
-                st.subheader(f"DCF Model Valuation for {ticker}")
-                st.write("### Valuation Summary")
-                st.write(f"**Discounted Cash Flow (DCF) Value:** ${dcf_data['DCF Value']}")
-                st.write(f"**Stock Price:** ${dcf_data['Stock Price']}")
-                st.write(f"**Valuation Date:** {dcf_data['Valuation Date']}")
+    # Fetch and Display DCF Valuation
+    dcf_data = fetch_dcf_valuation(ticker)
+    if dcf_data:
+        st.subheader(f"DCF Model Valuation for {ticker}")
+        st.write("### Valuation Summary")
+        st.write(f"**Discounted Cash Flow (DCF) Value:** ${dcf_data['DCF Value']}")
+        st.write(f"**Stock Price:** ${dcf_data['Stock Price']}")
+        st.write(f"**Valuation Date:** {dcf_data['Valuation Date']}")
 
-        # Display Growth Stock Analysis
-        if menu == "Growth Stock Analysis":
-            growth_data = fetch_financial_growth_data(ticker)
-            if growth_data:
-                st.subheader(f"Growth Stock Analysis for {ticker}")
-                st.write("### Visualized Growth Metrics")
-                plot_growth_metrics(growth_data)
+    # Fetch and Display Growth Metrics
+    growth_data = fetch_financial_growth_data(ticker)
+    if growth_data:
+        st.subheader(f"Growth Metrics for {ticker}")
+        plot_growth_metrics(growth_data)
