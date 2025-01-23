@@ -1,6 +1,5 @@
 import requests
 import streamlit as st
-import time
 
 # Fetch Financial Data from Alpha Vantage - Overview
 def fetch_financial_data(ticker):
@@ -9,7 +8,6 @@ def fetch_financial_data(ticker):
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        # Ensure the response contains valid data
         if "Symbol" in data:
             return data
         else:
@@ -27,12 +25,9 @@ def fetch_free_cash_flow(ticker):
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        # Debugging the response structure
-        st.write("Alpha Vantage CASH_FLOW Response Debug:", data)
         try:
             annual_data = data.get("annualReports", [])
             if annual_data:
-                # Use the most recent year's free cash flow value
                 fcf = float(annual_data[0].get("freeCashFlow", 0))
                 return fcf
             else:
@@ -51,8 +46,6 @@ def fetch_eps_data(ticker):
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        # Debugging the response structure
-        st.write("FMP Key Metrics Response Debug:", data)
         try:
             if data:
                 eps_growth = data[0].get("epsGrowth", 0)
@@ -66,34 +59,24 @@ def fetch_eps_data(ticker):
         st.error(f"Failed to fetch EPS data. Status code: {response.status_code}")
         return 0
 
-# Generate Insights with Cohere
-def generate_cohere_insights(metrics):
-    cohere_api_key = "i6rCnd8kHKs3DKmfo2glf48xftmfyOZ9kmuP9Gqc"  # Cohere API Key
-    cohere_endpoint = "https://api.cohere.ai/generate"
-    payload = {
-        "model": "command-xlarge-nightly",  # Replace with available model if necessary
-        "prompt": f"Provide insights on the following financial metrics: {metrics}",
-        "max_tokens": 300,
-        "temperature": 0.7
-    }
-    headers = {"Authorization": f"Bearer {cohere_api_key}"}
-    response = requests.post(cohere_endpoint, json=payload, headers=headers)
-
+# Fetch DCF Valuation from FMP DCF Reports API
+def fetch_dcf_valuation(ticker):
+    api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"  # FMP API Key
+    url = f"https://financialmodelingprep.com/api/v3/discounted-cash-flow/{ticker}?apikey={api_key}"
+    response = requests.get(url)
     if response.status_code == 200:
+        data = response.json()
+        st.write("DCF API Response Debug:", data)  # Debugging
         try:
-            response_json = response.json()
-            if "generations" in response_json:
-                return response_json["generations"][0]["text"]
-            else:
-                raise ValueError("Unexpected response structure")
-        except Exception as e:
-            st.error(f"Failed to parse Cohere response: {e}")
-            st.write("Cohere Response Debug:", response.text)
-            return None
+            dcf_value = data.get("dcf", "N/A")  # Default to N/A if not found
+            date = data.get("date", "N/A")
+            return dcf_value, date
+        except KeyError:
+            st.error("DCF data not found in the response.")
+            return "N/A", "N/A"
     else:
-        st.error(f"Failed to generate insights with Cohere. Status code: {response.status_code}")
-        st.write("Cohere API Debug:", response.text)
-        return None
+        st.error(f"Failed to fetch DCF valuation. Status code: {response.status_code}")
+        return "N/A", "N/A"
 
 # Streamlit App
 st.title("Enhanced Stock Analysis Tool")
@@ -126,18 +109,9 @@ if st.button("Run Analysis"):
             st.write(f"**Operating Cash Flow Growth (YoY):** {operating_cf_growth:.1f}%" if operating_cf_growth else "**Operating Cash Flow Growth (YoY):** N/A")
             st.write(f"**Free Cash Flow Growth (YoY):** {fcf_growth:.1f}%" if fcf_growth else "**Free Cash Flow Growth (YoY):** N/A")
 
-            # Generate Cohere AI Insights
-            metrics = {
-                "Revenue Growth": f"{revenue_growth:.1f}%" if revenue_growth else "N/A",
-                "Net Income Growth": f"{net_income_growth:.1f}%" if net_income_growth else "N/A",
-                "EPS Growth": f"{eps_growth:.1f}%" if eps_growth else "N/A",
-                "Operating Cash Flow Growth": f"{operating_cf_growth:.1f}%" if operating_cf_growth else "N/A",
-                "Free Cash Flow Growth": f"{fcf_growth:.1f}%" if fcf_growth else "N/A"
-            }
-            insights = generate_cohere_insights(metrics)
-            if insights:
-                st.subheader("Cohere AI Insights")
-                st.write(insights)
-            else:
-                st.error("Failed to generate insights with Cohere.")
-
+        # Display DCF Model Valuation
+        if menu == "DCF Model Valuation":
+            dcf_valuation, valuation_date = fetch_dcf_valuation(ticker)
+            st.subheader(f"DCF Valuation for {ticker}")
+            st.write(f"**Discounted Cash Flow (DCF) Value:** ${dcf_valuation}" if dcf_valuation != "N/A" else "**DCF Value:** Data not available.")
+            st.write(f"**Valuation Date:** {valuation_date}" if valuation_date != "N/A" else "**Valuation Date:** Data not available.")
