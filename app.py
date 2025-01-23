@@ -3,74 +3,52 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-# Fetch DCF Valuation from FMP DCF Reports API
-def fetch_dcf_valuation(ticker):
-    api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"  # FMP API Key
-    url = f"https://financialmodelingprep.com/api/v3/discounted-cash-flow/{ticker}?apikey={api_key}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        try:
-            data = response.json()
-            if isinstance(data, list) and len(data) > 0:
-                dcf_value = data[0].get("dcf", "N/A")
-                stock_price = data[0].get("Stock Price", "N/A")
-                date = data[0].get("date", "N/A")
-                return {"DCF Value": dcf_value, "Stock Price": stock_price, "Valuation Date": date}
-            else:
-                st.error("Unexpected response structure. DCF data not available.")
-                return None
-        except Exception as e:
-            st.error(f"Error parsing DCF data: {e}")
-            return None
-    else:
-        st.error(f"Failed to fetch DCF valuation. Status code: {response.status_code}")
-        return None
-
-# Fetch growth data from the appropriate API
-def fetch_growth_data(endpoint, ticker):
-    api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"  # FMP API Key
-    url = f"https://financialmodelingprep.com/api/v3/{endpoint}/{ticker}?period=annual&limit=10&apikey={api_key}"
+# Fetch Key Metrics TTM from the API
+def fetch_key_metrics_ttm(ticker):
+    api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"
+    url = f"https://financialmodelingprep.com/api/v3/key-metrics-ttm/{ticker}?apikey={api_key}"
     response = requests.get(url)
     if response.status_code == 200:
         return response.json()
     else:
-        st.error(f"Failed to fetch data from {endpoint}. Status code: {response.status_code}")
+        st.error(f"Failed to fetch Key Metrics TTM. Status code: {response.status_code}")
         return None
 
-# Combine and process growth data from multiple APIs
-def process_growth_data(ticker):
-    # Fetch data from different growth endpoints
-    cashflow_growth = fetch_growth_data("cash-flow-statement-growth", ticker)
-    income_growth = fetch_growth_data("income-statement-growth", ticker)
-    balance_sheet_growth = fetch_growth_data("balance-sheet-statement-growth", ticker)
+# Generate insights using Cohere AI
+def generate_cohere_insights(metrics):
+    cohere_api_key = "i6rCnd8kHKs3DKmfo2glf48xftmfyOZ9kmuP9Gqc"  # Replace with your Cohere API key
+    cohere_endpoint = "https://api.cohere.ai/generate"
+    prompt = f"Provide a succinct analysis of the following financial metrics: {metrics}"
+    payload = {
+        "model": "command-xlarge-nightly",
+        "prompt": prompt,
+        "max_tokens": 300,
+        "temperature": 0.7,
+    }
+    headers = {"Authorization": f"Bearer {cohere_api_key}"}
+    response = requests.post(cohere_endpoint, json=payload, headers=headers)
+    if response.status_code == 200:
+        try:
+            response_json = response.json()
+            return response_json.get("generations", [{}])[0].get("text", "No insights generated.")
+        except Exception as e:
+            st.error(f"Failed to parse Cohere response: {e}")
+            return None
+    else:
+        st.error(f"Failed to generate insights with Cohere. Status code: {response.status_code}")
+        return None
 
-    # Combine data into a single DataFrame
-    combined_data = []
-    if cashflow_growth:
-        for record in cashflow_growth:
-            record['type'] = 'Cashflow Growth'
-            combined_data.append(record)
-    if income_growth:
-        for record in income_growth:
-            record['type'] = 'Income Growth'
-            combined_data.append(record)
-    if balance_sheet_growth:
-        for record in balance_sheet_growth:
-            record['type'] = 'Balance Sheet Growth'
-            combined_data.append(record)
-
-    return pd.DataFrame(combined_data)
-
-# Plot bar charts for growth metrics
+# Plot bar charts with color-coded bars
 def plot_growth_bars(df):
     if not df.empty:
         for growth_type in df['type'].unique():
             data = df[df['type'] == growth_type]
             plt.figure(figsize=(12, 6))
+            colors = ['green' if val > 0 else 'red' for val in data['growthNetIncome'].astype(float)]
             plt.bar(
                 data['date'],
                 data['growthNetIncome'].astype(float) * 100,
-                color='teal',
+                color=colors,
                 edgecolor='black',
                 width=0.6,
             )
@@ -84,21 +62,31 @@ def plot_growth_bars(df):
         st.warning("No growth data available for visualization.")
 
 # Streamlit App
-st.title("DCF Valuation and Growth Analysis")
+st.title("DCF Valuation and Key Metrics Analysis")
 
 # User Input
 ticker = st.text_input("Enter Stock Ticker:", value="AAPL").upper()
 
 if st.button("Run Analysis"):
-    # DCF Valuation
-    st.subheader(f"DCF Valuation for {ticker}")
-    dcf_data = fetch_dcf_valuation(ticker)
-    if dcf_data:
-        st.write("### Valuation Summary")
-        st.write(f"**Discounted Cash Flow (DCF) Value:** ${dcf_data['DCF Value']}")
-        st.write(f"**Stock Price:** ${dcf_data['Stock Price']}")
-        st.write(f"**Valuation Date:** {dcf_data['Valuation Date']}")
-    
+    # Fetch Key Metrics TTM
+    st.subheader(f"Key Metrics TTM for {ticker}")
+    key_metrics = fetch_key_metrics_ttm(ticker)
+    if key_metrics:
+        key_metrics_data = key_metrics[0]
+        st.write("### Key Metrics Summary")
+        for key, value in key_metrics_data.items():
+            st.write(f"**{key}:** {value}")
+
+        # Generate Cohere AI Insights
+        st.subheader("Cohere AI Insights")
+        insights = generate_cohere_insights(key_metrics_data)
+        if insights:
+            st.write(insights)
+        else:
+            st.error("Failed to generate insights with Cohere.")
+    else:
+        st.error("No Key Metrics data available for the selected ticker.")
+
     # Growth Metrics Visualization
     st.subheader(f"Growth Metrics for {ticker}")
     growth_data = process_growth_data(ticker)
