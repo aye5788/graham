@@ -3,6 +3,29 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
+# Fetch DCF Valuation from FMP DCF Reports API
+def fetch_dcf_valuation(ticker):
+    api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"  # FMP API Key
+    url = f"https://financialmodelingprep.com/api/v3/discounted-cash-flow/{ticker}?apikey={api_key}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        try:
+            data = response.json()
+            if isinstance(data, list) and len(data) > 0:
+                dcf_value = data[0].get("dcf", "N/A")
+                stock_price = data[0].get("Stock Price", "N/A")
+                date = data[0].get("date", "N/A")
+                return {"DCF Value": dcf_value, "Stock Price": stock_price, "Valuation Date": date}
+            else:
+                st.error("Unexpected response structure. DCF data not available.")
+                return None
+        except Exception as e:
+            st.error(f"Error parsing DCF data: {e}")
+            return None
+    else:
+        st.error(f"Failed to fetch DCF valuation. Status code: {response.status_code}")
+        return None
+
 # Fetch growth data from the appropriate API
 def fetch_growth_data(endpoint, ticker):
     api_key = "j6kCIBjZa1pHewFjf7XaRDlslDxEFuof"  # FMP API Key
@@ -61,15 +84,26 @@ def plot_growth_bars(df):
         st.warning("No growth data available for visualization.")
 
 # Streamlit App
-st.title("Enhanced DCF and Growth Analysis")
+st.title("DCF Valuation and Growth Analysis")
 
 # User Input
 ticker = st.text_input("Enter Stock Ticker:", value="AAPL").upper()
 
 if st.button("Run Analysis"):
+    # DCF Valuation
+    st.subheader(f"DCF Valuation for {ticker}")
+    dcf_data = fetch_dcf_valuation(ticker)
+    if dcf_data:
+        st.write("### Valuation Summary")
+        st.write(f"**Discounted Cash Flow (DCF) Value:** ${dcf_data['DCF Value']}")
+        st.write(f"**Stock Price:** ${dcf_data['Stock Price']}")
+        st.write(f"**Valuation Date:** {dcf_data['Valuation Date']}")
+    
+    # Growth Metrics Visualization
     st.subheader(f"Growth Metrics for {ticker}")
     growth_data = process_growth_data(ticker)
     if not growth_data.empty:
         plot_growth_bars(growth_data)
     else:
         st.error("No growth data available for the selected ticker.")
+
