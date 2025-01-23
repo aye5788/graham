@@ -38,7 +38,7 @@ def fetch_financial_growth_data(ticker):
         st.error(f"Failed to fetch financial growth data. Status code: {response.status_code}")
         return None
 
-# Plot Growth Metrics
+# Plot Growth Metrics with Bar Charts
 def plot_growth_metrics(growth_data):
     if growth_data:
         # Convert to DataFrame
@@ -58,15 +58,15 @@ def plot_growth_metrics(growth_data):
             if metric in df.columns and not df[metric].isnull().all():
                 st.write(f"### {title}")
                 fig, ax = plt.subplots(figsize=(10, 6))
-                ax.plot(df.index, df[metric].astype(float) * 100, marker='o', label=title)
+                ax.bar(df.index, df[metric].astype(float) * 100, color='skyblue', width=50)
                 ax.set_title(f"{title} Over Time", fontsize=16)
                 ax.set_ylabel("Growth (%)", fontsize=12)
                 ax.set_xlabel("Date", fontsize=12)
-                ax.grid(True)
-                ax.legend()
+                ax.grid(axis="y", linestyle="--", alpha=0.7)
                 st.pyplot(fig)
             else:
                 st.warning(f"{title} data not available.")
+
 
 # Streamlit App
 st.title("DCF Analysis and Growth Metrics Visualization")
